@@ -1,0 +1,196 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  KITCHEN_STAFF
+  DELIVERY
+  CUSTOMER
+}
+
+enum OrderStatus {
+  PENDING
+  PREPARING
+  READY
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum AdjustmentType {
+  RESTOCK
+  DAMAGE
+  WASTE
+  AUDIT
+}
+
+enum ShiftStatus {
+  ASSIGNED
+  COMPLETED
+  ABSENT
+  SWAP_REQUESTED
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password_hash String
+  name          String
+  role          Role     @default(CUSTOMER)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  orders          Order[]
+  adjustments     InventoryAdjustment[]
+  shifts          Shift[]
+  timesheets      Timesheet[]
+  customer_profile CustomerProfile?
+}
+
+model MenuItem {
+  id           String   @id @default(uuid())
+  name         String
+  description  String?
+  price        Float
+  image_url    String?
+  category     String
+  is_available Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  order_items        OrderItem[]
+  recipe_ingredients RecipeIngredient[]
+}
+
+model Order {
+  id           String      @id @default(uuid())
+  user_id      String?
+  user         User?       @relation(fields: [user_id], references: [id])
+  status       OrderStatus @default(PENDING)
+  total_amount Float
+  created_at   DateTime    @default(now())
+  updated_at   DateTime    @updatedAt
+
+  order_items OrderItem[]
+  payments    Payment[]
+  feedbacks   Feedback[]
+}
+
+model OrderItem {
+  id             String   @id @default(uuid())
+  order_id       String
+  order          Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  menu_item_id   String
+  menu_item      MenuItem @relation(fields: [menu_item_id], references: [id])
+  quantity       Int
+  price          Float
+  customizations String?
+}
+
+model Payment {
+  id             String        @id @default(uuid())
+  order_id       String
+  order          Order         @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  amount         Float
+  payment_method String
+  status         PaymentStatus @default(PENDING)
+  tip_amount     Float         @default(0)
+  created_at     DateTime      @default(now())
+}
+
+model Ingredient {
+  id              String   @id @default(uuid())
+  name            String   @unique
+  current_stock   Float
+  unit            String
+  min_stock_alert Float
+  vendor_id       String?
+  vendor          Vendor?  @relation(fields: [vendor_id], references: [id])
+
+  recipe_ingredients RecipeIngredient[]
+  adjustments        InventoryAdjustment[]
+}
+
+model RecipeIngredient {
+  id           String   @id @default(uuid())
+  menu_item_id String
+  menu_item    MenuItem @relation(fields: [menu_item_id], references: [id], onDelete: Cascade)
+  ingredient_id String
+  ingredient   Ingredient @relation(fields: [ingredient_id], references: [id], onDelete: Cascade)
+  quantity     Float
+
+  @@unique([menu_item_id, ingredient_id])
+}
+
+model Vendor {
+  id           String   @id @default(uuid())
+  name         String
+  contact_info String?
+
+  ingredients Ingredient[]
+}
+
+model InventoryAdjustment {
+  id            String         @id @default(uuid())
+  ingredient_id String
+  ingredient    Ingredient     @relation(fields: [ingredient_id], references: [id], onDelete: Cascade)
+  quantity      Float
+  type          AdjustmentType
+  reason        String?
+  user_id       String
+  user          User           @relation(fields: [user_id], references: [id])
+  created_at    DateTime       @default(now())
+}
+
+model Shift {
+  id         String      @id @default(uuid())
+  user_id    String
+  user       User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  start_time DateTime
+  end_time   DateTime
+  status     ShiftStatus @default(ASSIGNED)
+}
+
+model Timesheet {
+  id          String    @id @default(uuid())
+  user_id     String
+  user        User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  clock_in    DateTime
+  clock_out   DateTime?
+  total_hours Float?
+}
+
+model CustomerProfile {
+  id             String  @id @default(uuid())
+  user_id        String  @unique
+  user           User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  loyalty_points Int     @default(0)
+  preferences    String?
+}
+
+model Feedback {
+  id         String   @id @default(uuid())
+  order_id   String
+  order      Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  rating     Int
+  comment    String?
+  created_at DateTime @default(now())
+}
