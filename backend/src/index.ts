@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 import authRoutes from './routes/authRoutes';
 import menuRoutes from './routes/menuRoutes';
 import orderRoutes from './routes/orderRoutes';
@@ -9,7 +10,7 @@ import employeeRoutes from './routes/employeeRoutes';
 import crmRoutes from './routes/crmRoutes';
 import reportRoutes from './routes/reportRoutes';
 
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, '../properties.config') });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
