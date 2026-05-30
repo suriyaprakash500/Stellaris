@@ -1,4 +1,5 @@
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const REQUEST_TIMEOUT_MS = 15000;
 
 function getHeaders() {
   const token = localStorage.getItem('stellaris_token');
@@ -12,21 +13,39 @@ function getHeaders() {
 }
 
 async function request(path: string, options: RequestInit = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      ...getHeaders(),
-      ...options.headers,
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        ...getHeaders(),
+        ...options.headers,
+      },
+    });
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error('Request timed out. Please check your connection and try again.');
+    }
+    throw new Error('Unable to reach the server. Please check your internet connection.');
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
-    let errorMsg = 'An error occurred';
+    let errorMsg = 'An unexpected error occurred';
     try {
       const data = await response.json();
       errorMsg = data.error || errorMsg;
     } catch {
-      // Ignore JSON parse error
+      if (response.status === 401) errorMsg = 'Invalid email or password';
+      else if (response.status === 403) errorMsg = 'You do not have permission to perform this action';
+      else if (response.status === 404) errorMsg = 'The requested resource was not found';
+      else if (response.status >= 500) errorMsg = 'Server error. Please try again later.';
     }
     throw new Error(errorMsg);
   }
@@ -39,6 +58,8 @@ export const api = {
   login: (credentials: any) => request('/auth/login', { method: 'POST', body: JSON.stringify(credentials) }),
   register: (data: any) => request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
   getProfile: () => request('/auth/profile'),
+  forgotPassword: (email: string) => request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
+  resetPassword: (token: string, newPassword: string) => request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, newPassword }) }),
 
   // Menu
   getMenuItems: () => request('/menu'),
@@ -91,3 +112,4 @@ export const api = {
   getInventoryReport: () => request('/reports/inventory'),
   getEmployeePerformanceReport: () => request('/reports/performance'),
 };
+

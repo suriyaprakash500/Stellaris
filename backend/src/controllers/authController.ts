@@ -74,3 +74,81 @@ export const getProfile = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+export const forgotPassword = async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    // Always return success to prevent email enumeration attacks
+    if (!user) {
+      return res.json({ message: 'If an account exists with that email, a reset code has been generated.' });
+    }
+
+    // Generate a short-lived reset token (15 minutes)
+    const resetToken = jwt.sign({ id: user.id, purpose: 'password_reset' }, JWT_SECRET, { expiresIn: '15m' });
+
+    // Log the reset token to server console (replace with email service in production)
+    console.log(`\n========== PASSWORD RESET ==========`);
+    console.log(`User: ${user.email}`);
+    console.log(`Reset Code: ${resetToken}`);
+    console.log(`Expires: 15 minutes`);
+    console.log(`====================================\n`);
+
+    res.json({ message: 'If an account exists with that email, a reset code has been generated.' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const resetPassword = async (req: Request, res: Response) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: 'Reset code and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (err: any) {
+      if (err.name === 'TokenExpiredError') {
+        return res.status(400).json({ error: 'Reset code has expired. Please request a new one.' });
+      }
+      return res.status(400).json({ error: 'Invalid reset code' });
+    }
+
+    if (decoded.purpose !== 'password_reset') {
+      return res.status(400).json({ error: 'Invalid reset code' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid reset code' });
+    }
+
+    const password_hash = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password_hash },
+    });
+
+    console.log(`Password reset successful for user: ${user.email}`);
+    res.json({ message: 'Password has been reset successfully' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
