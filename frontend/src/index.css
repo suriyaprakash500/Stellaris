@@ -441,6 +441,7 @@ a:hover {
   border-radius: 50px;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
+  color: var(--text-secondary);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
