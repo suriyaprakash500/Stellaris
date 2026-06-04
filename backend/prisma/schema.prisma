@@ -201,3 +201,13 @@ model Category {
   created_at DateTime @default(now())
 }
 
+model BusinessSettings {
+  id         String   @id @default(uuid())
+  shop_name  String
+  fssai_no   String?
+  mobile_no  String?
+  location   String?
+  branch_id  String?
+  updated_at DateTime @updatedAt
+}
+

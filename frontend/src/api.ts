@@ -72,6 +72,10 @@ export const api = {
   createCategory: (data: any) => request('/categories', { method: 'POST', body: JSON.stringify(data) }),
   deleteCategory: (id: string) => request(`/categories/${id}`, { method: 'DELETE' }),
 
+  // Business Settings
+  getBusinessSettings: () => request('/business'),
+  updateBusinessSettings: (data: any) => request('/business', { method: 'PUT', body: JSON.stringify(data) }),
+
   // Orders
   getOrders: () => request('/orders'),
   createOrder: (items: any[]) => request('/orders', { method: 'POST', body: JSON.stringify({ items }) }),

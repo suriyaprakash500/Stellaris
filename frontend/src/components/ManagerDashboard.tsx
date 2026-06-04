@@ -12,12 +12,13 @@ import {
   Edit2,
   Clock,
   Star,
-  ChefHat
+  ChefHat,
+  Settings
 } from 'lucide-react';
 
 export const ManagerDashboard: React.FC = () => {
   const { showToast, user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'sales' | 'menu' | 'categories' | 'inventory' | 'recipes' | 'staff'>('sales');
+  const [activeTab, setActiveTab] = useState<'sales' | 'menu' | 'categories' | 'inventory' | 'recipes' | 'staff' | 'business'>('sales');
 
   // Sales and reports state
   const [salesReport, setSalesReport] = useState<any>(null);
@@ -36,6 +37,16 @@ export const ManagerDashboard: React.FC = () => {
     image_url: '',
     is_available: true
   });
+
+  // Business settings state
+  const [businessForm, setBusinessForm] = useState({
+    shop_name: '',
+    fssai_no: '',
+    mobile_no: '',
+    location: '',
+    branch_id: ''
+  });
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   // Category state
   const [categories, setCategories] = useState<any[]>([]);
@@ -101,6 +112,15 @@ export const ManagerDashboard: React.FC = () => {
       } else if (activeTab === 'categories') {
         const cats = await api.getCategories();
         setCategories(cats);
+      } else if (activeTab === 'business') {
+        const settings = await api.getBusinessSettings();
+        setBusinessForm({
+          shop_name: settings.shop_name || '',
+          fssai_no: settings.fssai_no || '',
+          mobile_no: settings.mobile_no || '',
+          location: settings.location || '',
+          branch_id: settings.branch_id || ''
+        });
       } else if (activeTab === 'inventory') {
         const ings = await api.getIngredients();
         setIngredients(ings);
@@ -205,6 +225,21 @@ export const ManagerDashboard: React.FC = () => {
       fetchReportsAndData();
     } catch (err: any) {
       showToast(err.message || 'Action failed', 'error');
+    }
+  };
+
+  // Business Form Handlers
+  const handleBusinessSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingSettings(true);
+    try {
+      await api.updateBusinessSettings(businessForm);
+      showToast('Business settings saved successfully', 'success');
+      fetchReportsAndData();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to save settings', 'error');
+    } finally {
+      setIsSavingSettings(false);
     }
   };
 
@@ -438,6 +473,9 @@ export const ManagerDashboard: React.FC = () => {
         </button>
         <button className={`chip ${activeTab === 'staff' ? 'active' : ''}`} onClick={() => setActiveTab('staff')}>
           <Users size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} /> Staff Schedules
+        </button>
+        <button className={`chip ${activeTab === 'business' ? 'active' : ''}`} onClick={() => setActiveTab('business')}>
+          <Settings size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} /> Business Settings
         </button>
       </div>
 
@@ -1341,6 +1379,90 @@ export const ManagerDashboard: React.FC = () => {
                 </table>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. BUSINESS SETTINGS */}
+      {activeTab === 'business' && (
+        <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+          <div className="card">
+            <h3>Business Settings</h3>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
+              Configure your restaurant identity, contact details, food license, and branch metadata.
+            </p>
+            
+            <form onSubmit={handleBusinessSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div className="form-group">
+                <label className="form-label" htmlFor="business-name-input">Shop / Restaurant Name</label>
+                <input
+                  id="business-name-input"
+                  type="text"
+                  className="input-control"
+                  value={businessForm.shop_name}
+                  onChange={(e) => setBusinessForm({ ...businessForm, shop_name: e.target.value })}
+                  placeholder="e.g. Stellaris POS"
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label className="form-label" htmlFor="business-fssai-input">FSSAI Registration Number (FSSAI No)</label>
+                <input
+                  id="business-fssai-input"
+                  type="text"
+                  className="input-control"
+                  value={businessForm.fssai_no}
+                  onChange={(e) => setBusinessForm({ ...businessForm, fssai_no: e.target.value })}
+                  placeholder="14-digit FSSAI License No."
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="business-phone-input">Mobile / Contact Number</label>
+                <input
+                  id="business-phone-input"
+                  type="text"
+                  className="input-control"
+                  value={businessForm.mobile_no}
+                  onChange={(e) => setBusinessForm({ ...businessForm, mobile_no: e.target.value })}
+                  placeholder="e.g. +91 98765 43210"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="business-location-input">Location / Address</label>
+                <input
+                  id="business-location-input"
+                  type="text"
+                  className="input-control"
+                  value={businessForm.location}
+                  onChange={(e) => setBusinessForm({ ...businessForm, location: e.target.value })}
+                  placeholder="e.g. Chennai, India"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="business-branch-input">Branch ID</label>
+                <input
+                  id="business-branch-input"
+                  type="text"
+                  className="input-control"
+                  value={businessForm.branch_id}
+                  onChange={(e) => setBusinessForm({ ...businessForm, branch_id: e.target.value })}
+                  placeholder="e.g. BR-CHENNAI-01"
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                className="btn btn-primary" 
+                style={{ marginTop: '12px' }}
+                disabled={isSavingSettings}
+              >
+                {isSavingSettings ? 'Saving Settings...' : 'Save Settings'}
+              </button>
+            </form>
           </div>
         </div>
       )}
