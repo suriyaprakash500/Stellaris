@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import authRoutes from './routes/authRoutes';
 import menuRoutes from './routes/menuRoutes';
+import categoryRoutes from './routes/categoryRoutes';
 import orderRoutes from './routes/orderRoutes';
 import inventoryRoutes from './routes/inventoryRoutes';
 import employeeRoutes from './routes/employeeRoutes';
@@ -20,6 +21,7 @@ app.use(express.json());
 
 app.use('/auth', authRoutes);
 app.use('/menu', menuRoutes);
+app.use('/categories', categoryRoutes);
 app.use('/orders', orderRoutes);
 app.use('/inventory', inventoryRoutes);
 app.use('/employees', employeeRoutes);

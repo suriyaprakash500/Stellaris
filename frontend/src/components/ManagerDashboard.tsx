@@ -17,7 +17,7 @@ import {
 
 export const ManagerDashboard: React.FC = () => {
   const { showToast, user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'sales' | 'menu' | 'inventory' | 'recipes' | 'staff'>('sales');
+  const [activeTab, setActiveTab] = useState<'sales' | 'menu' | 'categories' | 'inventory' | 'recipes' | 'staff'>('sales');
 
   // Sales and reports state
   const [salesReport, setSalesReport] = useState<any>(null);
@@ -36,6 +36,10 @@ export const ManagerDashboard: React.FC = () => {
     image_url: '',
     is_available: true
   });
+
+  // Category state
+  const [categories, setCategories] = useState<any[]>([]);
+  const [categoryForm, setCategoryForm] = useState({ name: '' });
 
   // Inventory state
   const [ingredients, setIngredients] = useState<any[]>([]);
@@ -92,6 +96,11 @@ export const ManagerDashboard: React.FC = () => {
       } else if (activeTab === 'menu') {
         const items = await api.getMenuItems();
         setMenuItems(items);
+        const cats = await api.getCategories();
+        setCategories(cats);
+      } else if (activeTab === 'categories') {
+        const cats = await api.getCategories();
+        setCategories(cats);
       } else if (activeTab === 'inventory') {
         const ings = await api.getIngredients();
         setIngredients(ings);
@@ -169,6 +178,30 @@ export const ManagerDashboard: React.FC = () => {
     try {
       await api.deleteMenuItem(id);
       showToast('Menu item deleted', 'success');
+      fetchReportsAndData();
+    } catch (err: any) {
+      showToast(err.message || 'Action failed', 'error');
+    }
+  };
+
+  // Category Form Handlers
+  const handleCategorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.createCategory(categoryForm);
+      showToast('Category created', 'success');
+      setCategoryForm({ name: '' });
+      fetchReportsAndData();
+    } catch (err: any) {
+      showToast(err.message || 'Action failed', 'error');
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this category?')) return;
+    try {
+      await api.deleteCategory(id);
+      showToast('Category deleted', 'success');
       fetchReportsAndData();
     } catch (err: any) {
       showToast(err.message || 'Action failed', 'error');
@@ -394,6 +427,9 @@ export const ManagerDashboard: React.FC = () => {
         <button className={`chip ${activeTab === 'menu' ? 'active' : ''}`} onClick={() => setActiveTab('menu')}>
           <BookOpen size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} /> Menu Setup
         </button>
+        <button className={`chip ${activeTab === 'categories' ? 'active' : ''}`} onClick={() => setActiveTab('categories')}>
+          <BookOpen size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} /> Category Setup
+        </button>
         <button className={`chip ${activeTab === 'inventory' ? 'active' : ''}`} onClick={() => setActiveTab('inventory')}>
           <Package size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} /> Inventory & Vendors
         </button>
@@ -616,16 +652,24 @@ export const ManagerDashboard: React.FC = () => {
                 />
               </div>
               <div className="form-group">
-                <label className="form-label" htmlFor="menu-cat-input">Category</label>
-                <input
-                  id="menu-cat-input"
-                  type="text"
+                <label className="form-label" htmlFor="menu-cat-select">Category</label>
+                <select
+                  id="menu-cat-select"
                   className="input-control"
                   value={menuForm.category}
                   onChange={(e) => setMenuForm({ ...menuForm, category: e.target.value })}
-                  placeholder="e.g. Burgers, Pizzas, Desserts"
                   required
-                />
+                >
+                  <option value="">Select Category</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.name}>{cat.name}</option>
+                  ))}
+                </select>
+                {categories.length === 0 && (
+                  <div style={{ fontSize: '12px', color: 'var(--danger)', marginTop: '4px' }}>
+                    Please configure categories in the Category Setup tab first.
+                  </div>
+                )}
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="menu-img-input">Image URL</label>
@@ -665,6 +709,68 @@ export const ManagerDashboard: React.FC = () => {
                   </button>
                 )}
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 2B. CATEGORY SETUP */}
+      {activeTab === 'categories' && (
+        <div className="grid-cols-3" style={{ alignItems: 'flex-start' }}>
+          {/* List of current categories */}
+          <div className="card" style={{ gridColumn: 'span 2' }}>
+            <h3>Categories Setup</h3>
+            <div className="table-container">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Category Name</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {categories.map((cat) => (
+                    <tr key={cat.id}>
+                      <td>
+                        <strong>{cat.name}</strong>
+                      </td>
+                      <td>
+                        <button className="btn btn-danger" style={{ padding: '6px 10px' }} onClick={() => handleDeleteCategory(cat.id)}>
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {categories.length === 0 && (
+                    <tr>
+                      <td colSpan={2} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>
+                        No categories configured. Create one on the right!
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Add Category Form */}
+          <div className="card">
+            <h3>Add Category</h3>
+            <form onSubmit={handleCategorySubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="form-group">
+                <label className="form-label" htmlFor="cat-name-input">Category Name</label>
+                <input
+                  id="cat-name-input"
+                  type="text"
+                  className="input-control"
+                  value={categoryForm.name}
+                  onChange={(e) => setCategoryForm({ name: e.target.value })}
+                  required
+                />
+              </div>
+              <button type="submit" className="btn btn-primary" style={{ marginTop: '8px' }}>
+                Create Category
+              </button>
             </form>
           </div>
         </div>
