@@ -6,7 +6,7 @@ export const createOrder = async (req: Request, res: Response) => {
   try {
     // @ts-ignore
     const userId = req.user.id;
-    const { items } = req.body; // Array of { menu_item_id, quantity, customizations }
+    const { items, branch_id } = req.body; // Array of { menu_item_id, quantity, customizations } and branch_id
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'Order must contain at least one item' });
@@ -79,12 +79,12 @@ export const createOrder = async (req: Request, res: Response) => {
         });
       }
 
-      // 2. Create the Order
       const newOrder = await tx.order.create({
         data: {
           user_id: userId,
           total_amount: totalAmount,
           status: 'PENDING',
+          branch_id: branch_id || null,
           order_items: {
             create: orderItemsData,
           },
@@ -111,12 +111,23 @@ export const createOrder = async (req: Request, res: Response) => {
 export const getOrders = async (req: Request, res: Response) => {
   try {
     // @ts-ignore
-    const { id: userId, role } = req.user;
+    const { id: userId, role, branchId: userBranchId } = req.user;
 
     let orders;
-    // Admins, managers, waitstaff/kitchen staff, and delivery can view all orders (scoped/filtered by status in frontend)
-    if (role === 'ADMIN' || role === 'MANAGER' || role === 'KITCHEN_STAFF' || role === 'DELIVERY') {
+    if (role === 'ADMIN' || role === 'MANAGER' || role === 'KITCHEN_STAFF' || role === 'DELIVERY' || role === 'OWNER') {
+      const { branchId: queryBranchId } = req.query;
+      const where: any = {};
+
+      if (role === 'MANAGER' || role === 'KITCHEN_STAFF' || role === 'DELIVERY') {
+        if (userBranchId) {
+          where.branch_id = userBranchId;
+        }
+      } else if (queryBranchId && typeof queryBranchId === 'string' && queryBranchId !== '') {
+        where.branch_id = queryBranchId;
+      }
+
       orders = await prisma.order.findMany({
+        where,
         include: {
           user: { select: { id: true, name: true, email: true } },
           order_items: { include: { menu_item: true } },
@@ -125,7 +136,6 @@ export const getOrders = async (req: Request, res: Response) => {
         orderBy: { created_at: 'desc' },
       });
     } else {
-      // Normal customers can only view their own orders
       orders = await prisma.order.findMany({
         where: { user_id: userId },
         include: {
@@ -227,18 +237,6 @@ export const recordPayment = async (req: Request, res: Response) => {
     // If payment is completed and we've paid the full amount, update the order status
     // Or let the client mark it. For simplicity, if payment succeeds, we transition status or keep tracking
     const totalPaid = order.payments.reduce((acc: number, p: any) => p.status === 'COMPLETED' ? acc + p.amount : acc, 0) + (status === 'COMPLETED' ? parseFloat(amount) : 0);
-
-    if (totalPaid >= order.total_amount) {
-      // Add loyalty points if the order user is logged in
-      if (order.user_id && status === 'COMPLETED') {
-        const pointsEarned = Math.floor(order.total_amount / 10); // 1 point for every 10 currency units
-        await prisma.customerProfile.upsert({
-          where: { user_id: order.user_id },
-          create: { user_id: order.user_id, loyalty_points: pointsEarned },
-          update: { loyalty_points: { increment: pointsEarned } },
-        });
-      }
-    }
 
     res.status(201).json({ payment, totalPaid, total_amount: order.total_amount });
   } catch (error) {

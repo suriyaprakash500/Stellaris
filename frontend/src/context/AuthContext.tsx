@@ -5,7 +5,7 @@ interface User {
   id: string;
   email: string;
   name: string;
-  role: 'ADMIN' | 'MANAGER' | 'KITCHEN_STAFF' | 'DELIVERY' | 'CUSTOMER';
+  role: 'ADMIN' | 'MANAGER' | 'KITCHEN_STAFF' | 'DELIVERY' | 'CUSTOMER' | 'OWNER';
 }
 
 interface Toast {

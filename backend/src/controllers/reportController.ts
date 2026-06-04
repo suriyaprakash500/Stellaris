@@ -4,9 +4,22 @@ import prisma from '../db/prisma';
 // 1. Sales Report
 export const getSalesReport = async (req: Request, res: Response) => {
   try {
+    // @ts-ignore
+    const { role, branchId: userBranchId } = req.user;
+    const { branchId: queryBranchId } = req.query;
+
+    const where: any = { status: 'DELIVERED' };
+    if (role === 'MANAGER' || role === 'KITCHEN_STAFF' || role === 'DELIVERY') {
+      if (userBranchId) {
+        where.branch_id = userBranchId;
+      }
+    } else if (queryBranchId && typeof queryBranchId === 'string' && queryBranchId !== '') {
+      where.branch_id = queryBranchId;
+    }
+
     // 1a. Total Revenue and completed order count
     const completedOrders = await prisma.order.findMany({
-      where: { status: 'DELIVERED' },
+      where,
       include: { order_items: { include: { menu_item: true } } },
     });
 
@@ -66,13 +79,32 @@ export const getSalesReport = async (req: Request, res: Response) => {
 // 2. Inventory Usage & Wastage Report
 export const getInventoryReport = async (req: Request, res: Response) => {
   try {
+    // @ts-ignore
+    const { role, branchId: userBranchId } = req.user;
+    const { branchId: queryBranchId } = req.query;
+
+    const ingredientWhere: any = {};
+    const wastageWhere: any = { type: 'WASTE' };
+
+    if (role === 'MANAGER' || role === 'KITCHEN_STAFF' || role === 'DELIVERY') {
+      if (userBranchId) {
+        ingredientWhere.branch_id = userBranchId;
+        wastageWhere.ingredient = { branch_id: userBranchId };
+      }
+    } else if (queryBranchId && typeof queryBranchId === 'string' && queryBranchId !== '') {
+      ingredientWhere.branch_id = queryBranchId;
+      wastageWhere.ingredient = { branch_id: queryBranchId };
+    }
+
     // Low stock warnings list
-    const ingredients = await prisma.ingredient.findMany();
+    const ingredients = await prisma.ingredient.findMany({
+      where: ingredientWhere,
+    });
     const lowStockItems = ingredients.filter(ing => ing.current_stock <= ing.min_stock_alert);
 
     // Wastage details
     const wastageLogs = await prisma.inventoryAdjustment.findMany({
-      where: { type: 'WASTE' },
+      where: wastageWhere,
       include: { ingredient: true },
       orderBy: { created_at: 'desc' },
     });
@@ -110,7 +142,22 @@ export const getInventoryReport = async (req: Request, res: Response) => {
 // 3. Employee Performance Metrics
 export const getEmployeePerformanceReport = async (req: Request, res: Response) => {
   try {
+    // @ts-ignore
+    const { role, branchId: userBranchId } = req.user;
+    const { branchId: queryBranchId } = req.query;
+
+    const timesheetWhere: any = {};
+
+    if (role === 'MANAGER' || role === 'KITCHEN_STAFF' || role === 'DELIVERY') {
+      if (userBranchId) {
+        timesheetWhere.user = { branch_id: userBranchId };
+      }
+    } else if (queryBranchId && typeof queryBranchId === 'string' && queryBranchId !== '') {
+      timesheetWhere.user = { branch_id: queryBranchId };
+    }
+
     const timesheets = await prisma.timesheet.findMany({
+      where: timesheetWhere,
       include: { user: { select: { name: true, role: true } } },
     });
 

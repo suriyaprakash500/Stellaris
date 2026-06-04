@@ -3,7 +3,14 @@ import prisma from '../db/prisma';
 
 export const getMenuItems = async (req: Request, res: Response) => {
   try {
+    const { branchId } = req.query;
+    const where: any = {};
+    if (branchId && typeof branchId === 'string' && branchId !== '') {
+      where.branch_id = branchId;
+    }
+
     const items = await prisma.menuItem.findMany({
+      where,
       orderBy: { category: 'asc' },
     });
     res.json(items);
@@ -16,6 +23,12 @@ export const getMenuItems = async (req: Request, res: Response) => {
 export const createMenuItem = async (req: Request, res: Response) => {
   try {
     const { name, description, price, image_url, category, is_available } = req.body;
+    // @ts-ignore
+    const userRole = req.user.role;
+    // @ts-ignore
+    const userBranchId = req.user.branchId;
+
+    const branch_id = userRole === 'OWNER' || userRole === 'ADMIN' ? req.body.branch_id : userBranchId;
 
     if (!name || price === undefined || !category) {
       return res.status(400).json({ error: 'Name, price, and category are required' });
@@ -29,6 +42,7 @@ export const createMenuItem = async (req: Request, res: Response) => {
         image_url,
         category,
         is_available: is_available !== undefined ? is_available : true,
+        branch_id: branch_id || null,
       },
     });
 
@@ -43,11 +57,21 @@ export const updateMenuItem = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
     const { name, description, price, image_url, category, is_available } = req.body;
+    // @ts-ignore
+    const userRole = req.user.role;
+    // @ts-ignore
+    const userBranchId = req.user.branchId;
 
     const existingItem = await prisma.menuItem.findUnique({ where: { id } });
     if (!existingItem) {
       return res.status(404).json({ error: 'Menu item not found' });
     }
+
+    if (userRole !== 'OWNER' && userRole !== 'ADMIN' && existingItem.branch_id !== userBranchId) {
+      return res.status(403).json({ error: 'Forbidden: You cannot modify items of another branch' });
+    }
+
+    const branch_id = userRole === 'OWNER' || userRole === 'ADMIN' ? req.body.branch_id : undefined;
 
     const item = await prisma.menuItem.update({
       where: { id },
@@ -58,6 +82,7 @@ export const updateMenuItem = async (req: Request, res: Response) => {
         image_url,
         category,
         is_available: is_available !== undefined ? is_available : undefined,
+        branch_id: branch_id !== undefined ? (branch_id || null) : undefined,
       },
     });
 
@@ -71,10 +96,18 @@ export const updateMenuItem = async (req: Request, res: Response) => {
 export const deleteMenuItem = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
+    // @ts-ignore
+    const userRole = req.user.role;
+    // @ts-ignore
+    const userBranchId = req.user.branchId;
 
     const existingItem = await prisma.menuItem.findUnique({ where: { id } });
     if (!existingItem) {
       return res.status(404).json({ error: 'Menu item not found' });
+    }
+
+    if (userRole !== 'OWNER' && userRole !== 'ADMIN' && existingItem.branch_id !== userBranchId) {
+      return res.status(403).json({ error: 'Forbidden: You cannot delete items of another branch' });
     }
 
     await prisma.menuItem.delete({ where: { id } });

@@ -13,7 +13,7 @@ export const getCustomerProfile = async (req: Request, res: Response) => {
 
     if (!profile) {
       // Return a default profile if it doesn't exist yet
-      return res.json({ loyalty_points: 0, preferences: '' });
+      return res.json({ preferences: '' });
     }
 
     res.json(profile);

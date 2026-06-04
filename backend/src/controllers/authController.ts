@@ -7,7 +7,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key';
 
 export const register = async (req: Request, res: Response) => {
   try {
-    const { email, password, name, role } = req.body;
+    const { email, password, name, role, branch_id } = req.body;
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -22,13 +22,14 @@ export const register = async (req: Request, res: Response) => {
         password_hash,
         name,
         role: role || 'CUSTOMER',
+        branch_id: branch_id || null,
       },
     });
 
-    const payload = { id: user.id, role: user.role };
+    const payload = { id: user.id, role: user.role, branchId: user.branch_id };
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
 
-    res.status(201).json({ token, user: { id: user.id, email: user.email, role: user.role } });
+    res.status(201).json({ token, user: { id: user.id, email: user.email, role: user.role, branchId: user.branch_id } });
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -49,10 +50,10 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const payload = { id: user.id, role: user.role };
+    const payload = { id: user.id, role: user.role, branchId: user.branch_id };
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
 
-    res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
+    res.json({ token, user: { id: user.id, email: user.email, role: user.role, branchId: user.branch_id } });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -69,7 +70,7 @@ export const getProfile = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json({ id: user.id, email: user.email, name: user.name, role: user.role });
+    res.json({ id: user.id, email: user.email, name: user.name, role: user.role, branchId: user.branch_id });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }

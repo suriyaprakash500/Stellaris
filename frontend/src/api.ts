@@ -62,7 +62,7 @@ export const api = {
   resetPassword: (token: string, newPassword: string) => request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, newPassword }) }),
 
   // Menu
-  getMenuItems: () => request('/menu'),
+  getMenuItems: (branchId?: string) => request(branchId ? `/menu?branchId=${branchId}` : '/menu'),
   createMenuItem: (data: any) => request('/menu', { method: 'POST', body: JSON.stringify(data) }),
   updateMenuItem: (id: string, data: any) => request(`/menu/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteMenuItem: (id: string) => request(`/menu/${id}`, { method: 'DELETE' }),
@@ -76,14 +76,18 @@ export const api = {
   getBusinessSettings: () => request('/business'),
   updateBusinessSettings: (data: any) => request('/business', { method: 'PUT', body: JSON.stringify(data) }),
 
+  // Branches
+  getBranches: () => request('/branches'),
+  createBranch: (data: any) => request('/branches', { method: 'POST', body: JSON.stringify(data) }),
+
   // Orders
-  getOrders: () => request('/orders'),
-  createOrder: (items: any[]) => request('/orders', { method: 'POST', body: JSON.stringify({ items }) }),
+  getOrders: (branchId?: string) => request(branchId ? `/orders?branchId=${branchId}` : '/orders'),
+  createOrder: (items: any[], branch_id?: string) => request('/orders', { method: 'POST', body: JSON.stringify({ items, branch_id }) }),
   updateOrderStatus: (id: string, status: string) => request(`/orders/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
   recordPayment: (id: string, paymentData: any) => request(`/orders/${id}/pay`, { method: 'POST', body: JSON.stringify(paymentData) }),
 
   // Inventory
-  getIngredients: () => request('/inventory'),
+  getIngredients: (branchId?: string) => request(branchId ? `/inventory?branchId=${branchId}` : '/inventory'),
   createIngredient: (data: any) => request('/inventory', { method: 'POST', body: JSON.stringify(data) }),
   updateIngredient: (id: string, data: any) => request(`/inventory/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteIngredient: (id: string) => request(`/inventory/${id}`, { method: 'DELETE' }),
@@ -118,7 +122,7 @@ export const api = {
     const qs = params ? '?' + new URLSearchParams(params).toString() : '';
     return request(`/reports/sales${qs}`);
   },
-  getInventoryReport: () => request('/reports/inventory'),
-  getEmployeePerformanceReport: () => request('/reports/performance'),
+  getInventoryReport: (branchId?: string) => request(branchId ? `/reports/inventory?branchId=${branchId}` : '/reports/inventory'),
+  getEmployeePerformanceReport: (branchId?: string) => request(branchId ? `/reports/performance?branchId=${branchId}` : '/reports/performance'),
 };
 

@@ -18,7 +18,7 @@ import {
 
 export const ManagerDashboard: React.FC = () => {
   const { showToast, user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'sales' | 'menu' | 'categories' | 'inventory' | 'recipes' | 'staff' | 'business'>('sales');
+  const [activeTab, setActiveTab] = useState<'sales' | 'menu' | 'categories' | 'inventory' | 'recipes' | 'staff' | 'business' | 'branches'>('sales');
 
   // Sales and reports state
   const [salesReport, setSalesReport] = useState<any>(null);
@@ -35,7 +35,8 @@ export const ManagerDashboard: React.FC = () => {
     price: 0,
     category: '',
     image_url: '',
-    is_available: true
+    is_available: true,
+    branch_id: ''
   });
 
   // Business settings state
@@ -60,7 +61,8 @@ export const ManagerDashboard: React.FC = () => {
     current_stock: 0,
     unit: '',
     min_stock_alert: 0,
-    vendor_id: ''
+    vendor_id: '',
+    branch_id: ''
   });
   const [adjustForm, setAdjustForm] = useState({
     ingredient_id: '',
@@ -97,15 +99,53 @@ export const ManagerDashboard: React.FC = () => {
   // For manager clock in/out simulation
   const [activeTimesheet, setActiveTimesheet] = useState<any>(null);
 
+  // Branches admin state
+  const [branches, setBranches] = useState<any[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('');
+  const [branchForm, setBranchForm] = useState({
+    name: '',
+    location: '',
+    mobile_no: ''
+  });
+
+  const handleBranchSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.createBranch(branchForm);
+      showToast('Branch created successfully', 'success');
+      setBranchForm({ name: '', location: '', mobile_no: '' });
+      const list = await api.getBranches();
+      setBranches(list);
+    } catch (err: any) {
+      showToast(err.message || 'Action failed', 'error');
+    }
+  };
+
+  useEffect(() => {
+    const loadBranches = async () => {
+      if (user?.role === 'OWNER') {
+        try {
+          const list = await api.getBranches();
+          setBranches(list);
+        } catch (err) {
+          console.error('Failed to load branches:', err);
+        }
+      }
+    };
+    loadBranches();
+  }, [user?.role]);
+
   const fetchReportsAndData = async () => {
     try {
+      const branchParam = user?.role === 'OWNER' ? selectedBranchId : undefined;
+
       if (activeTab === 'sales') {
-        const sales = await api.getSalesReport();
+        const sales = await api.getSalesReport(branchParam ? { branchId: branchParam } : undefined);
         setSalesReport(sales);
         const fb = await api.getAllFeedback();
         setFeedbacks(fb);
       } else if (activeTab === 'menu') {
-        const items = await api.getMenuItems();
+        const items = await api.getMenuItems(branchParam);
         setMenuItems(items);
         const cats = await api.getCategories();
         setCategories(cats);
@@ -122,16 +162,16 @@ export const ManagerDashboard: React.FC = () => {
           branch_id: settings.branch_id || ''
         });
       } else if (activeTab === 'inventory') {
-        const ings = await api.getIngredients();
+        const ings = await api.getIngredients(branchParam);
         setIngredients(ings);
         const vens = await api.getVendors();
         setVendors(vens);
-        const reports = await api.getInventoryReport();
+        const reports = await api.getInventoryReport(branchParam);
         setInventoryReport(reports);
       } else if (activeTab === 'recipes') {
-        const items = await api.getMenuItems();
+        const items = await api.getMenuItems(branchParam);
         setMenuItems(items);
-        const ings = await api.getIngredients();
+        const ings = await api.getIngredients(branchParam);
         setIngredients(ings);
       } else if (activeTab === 'staff') {
         const list = await api.getEmployeesList();
@@ -140,12 +180,17 @@ export const ManagerDashboard: React.FC = () => {
         setShifts(s);
         const t = await api.getTimesheets();
         setTimesheets(t);
-        const perf = await api.getEmployeePerformanceReport();
+        const perf = await api.getEmployeePerformanceReport(branchParam);
         setPerformanceReport(perf);
 
         // check if currently clocked in
         const userT = t.find((ts: any) => ts.user_id === user?.id && ts.clock_out === null);
         setActiveTimesheet(userT || null);
+      } else if (activeTab === 'branches') {
+        if (user?.role === 'OWNER') {
+          const list = await api.getBranches();
+          setBranches(list);
+        }
       }
     } catch (err: any) {
       console.error(err);
@@ -154,7 +199,7 @@ export const ManagerDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchReportsAndData();
-  }, [activeTab]);
+  }, [activeTab, selectedBranchId]);
 
   // Menu Form Handlers
   const handleMenuSubmit = async (e: React.FormEvent) => {
@@ -163,18 +208,20 @@ export const ManagerDashboard: React.FC = () => {
       if (editingMenuItem) {
         await api.updateMenuItem(editingMenuItem.id, {
           ...menuForm,
-          price: Number(menuForm.price)
+          price: Number(menuForm.price),
+          branch_id: menuForm.branch_id || undefined
         });
         showToast('Menu item updated', 'success');
       } else {
         await api.createMenuItem({
           ...menuForm,
-          price: Number(menuForm.price)
+          price: Number(menuForm.price),
+          branch_id: menuForm.branch_id || undefined
         });
         showToast('Menu item created', 'success');
       }
       setEditingMenuItem(null);
-      setMenuForm({ name: '', description: '', price: 0, category: '', image_url: '', is_available: true });
+      setMenuForm({ name: '', description: '', price: 0, category: '', image_url: '', is_available: true, branch_id: '' });
       fetchReportsAndData();
     } catch (err: any) {
       showToast(err.message || 'Action failed', 'error');
@@ -189,7 +236,8 @@ export const ManagerDashboard: React.FC = () => {
       price: item.price,
       category: item.category,
       image_url: item.image_url || '',
-      is_available: item.is_available
+      is_available: item.is_available,
+      branch_id: item.branch_id || ''
     });
   };
 
@@ -252,7 +300,8 @@ export const ManagerDashboard: React.FC = () => {
         current_stock: Number(ingForm.current_stock),
         unit: ingForm.unit,
         min_stock_alert: Number(ingForm.min_stock_alert),
-        vendor_id: ingForm.vendor_id || undefined
+        vendor_id: ingForm.vendor_id || undefined,
+        branch_id: ingForm.branch_id || undefined
       };
 
       if (editingIngredient) {
@@ -263,7 +312,7 @@ export const ManagerDashboard: React.FC = () => {
         showToast('Ingredient created', 'success');
       }
       setEditingIngredient(null);
-      setIngForm({ name: '', current_stock: 0, unit: '', min_stock_alert: 0, vendor_id: '' });
+      setIngForm({ name: '', current_stock: 0, unit: '', min_stock_alert: 0, vendor_id: '', branch_id: '' });
       fetchReportsAndData();
     } catch (err: any) {
       showToast(err.message || 'Action failed', 'error');
@@ -277,7 +326,8 @@ export const ManagerDashboard: React.FC = () => {
       current_stock: ing.current_stock,
       unit: ing.unit,
       min_stock_alert: ing.min_stock_alert,
-      vendor_id: ing.vendor_id || ''
+      vendor_id: ing.vendor_id || '',
+      branch_id: ing.branch_id || ''
     });
   };
 
@@ -441,7 +491,24 @@ export const ManagerDashboard: React.FC = () => {
           <h2>Operations Dashboard</h2>
           <p style={{ color: 'var(--text-secondary)' }}>Manage restaurant inventory, scheduling, menus, and view reports.</p>
         </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {user?.role === 'OWNER' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '12px' }}>
+              <label htmlFor="dashboard-branch-select" style={{ fontSize: '14px', fontWeight: 'bold', color: 'var(--text-secondary)' }}>Branch:</label>
+              <select
+                id="dashboard-branch-select"
+                className="input-control"
+                style={{ width: '180px', margin: 0, padding: '8px 12px', height: 'auto' }}
+                value={selectedBranchId}
+                onChange={(e) => setSelectedBranchId(e.target.value)}
+              >
+                <option value="">All Branches</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           {activeTimesheet ? (
             <button className="btn btn-danger" onClick={handleClockOut} style={{ gap: '8px' }}>
               <Clock size={16} /> Clock Out (Active: {activeTimesheet.clock_in ? new Date(activeTimesheet.clock_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''})
@@ -477,6 +544,11 @@ export const ManagerDashboard: React.FC = () => {
         <button className={`chip ${activeTab === 'business' ? 'active' : ''}`} onClick={() => setActiveTab('business')}>
           <Settings size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} /> Business Settings
         </button>
+        {user?.role === 'OWNER' && (
+          <button className={`chip ${activeTab === 'branches' ? 'active' : ''}`} onClick={() => setActiveTab('branches')}>
+            <Settings size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} /> Branch Admin
+          </button>
+        )}
       </div>
 
       {/* TAB CONTENTS */}
@@ -720,6 +792,22 @@ export const ManagerDashboard: React.FC = () => {
                   placeholder="Leave blank for placeholder"
                 />
               </div>
+              {user?.role === 'OWNER' && (
+                <div className="form-group">
+                  <label className="form-label" htmlFor="menu-branch-select">Branch Scope</label>
+                  <select
+                    id="menu-branch-select"
+                    className="input-control"
+                    value={menuForm.branch_id || ''}
+                    onChange={(e) => setMenuForm({ ...menuForm, branch_id: e.target.value })}
+                  >
+                    <option value="">-- None (Global) --</option>
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <input
                   id="menu-avail-checkbox"
@@ -740,7 +828,7 @@ export const ManagerDashboard: React.FC = () => {
                     className="btn btn-secondary"
                     onClick={() => {
                       setEditingMenuItem(null);
-                      setMenuForm({ name: '', description: '', price: 0, category: '', image_url: '', is_available: true });
+                      setMenuForm({ name: '', description: '', price: 0, category: '', image_url: '', is_available: true, branch_id: '' });
                     }}
                   >
                     Cancel
@@ -922,14 +1010,30 @@ export const ManagerDashboard: React.FC = () => {
                     required
                   />
                 </div>
+              {user?.role === 'OWNER' && (
                 <div className="form-group">
-                  <label className="form-label" htmlFor="ing-vendor-select">Vendor (Optional)</label>
+                  <label className="form-label" htmlFor="ing-branch-select">Branch Scope</label>
                   <select
-                    id="ing-vendor-select"
+                    id="ing-branch-select"
                     className="input-control"
-                    value={ingForm.vendor_id}
-                    onChange={(e) => setIngForm({ ...ingForm, vendor_id: e.target.value })}
+                    value={ingForm.branch_id || ''}
+                    onChange={(e) => setIngForm({ ...ingForm, branch_id: e.target.value })}
                   >
+                    <option value="">-- None (Global) --</option>
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="form-group">
+                <label className="form-label" htmlFor="ing-vendor-select">Vendor (Optional)</label>
+                <select
+                  id="ing-vendor-select"
+                  className="input-control"
+                  value={ingForm.vendor_id}
+                  onChange={(e) => setIngForm({ ...ingForm, vendor_id: e.target.value })}
+                >
                     <option value="">-- None --</option>
                     {vendors.map((v) => (
                       <option key={v.id} value={v.id}>{v.name}</option>
@@ -947,7 +1051,7 @@ export const ManagerDashboard: React.FC = () => {
                       className="btn btn-secondary"
                       onClick={() => {
                         setEditingIngredient(null);
-                        setIngForm({ name: '', current_stock: 0, unit: '', min_stock_alert: 0, vendor_id: '' });
+                        setIngForm({ name: '', current_stock: 0, unit: '', min_stock_alert: 0, vendor_id: '', branch_id: '' });
                       }}
                     >
                       Cancel
@@ -1461,6 +1565,88 @@ export const ManagerDashboard: React.FC = () => {
                 disabled={isSavingSettings}
               >
                 {isSavingSettings ? 'Saving Settings...' : 'Save Settings'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* 7. BRANCH SETUP */}
+      {activeTab === 'branches' && user?.role === 'OWNER' && (
+        <div className="grid-cols-3" style={{ alignItems: 'flex-start' }}>
+          {/* List of current branches */}
+          <div className="card" style={{ gridColumn: 'span 2' }}>
+            <h3>Branches Admin Setup</h3>
+            <div className="table-container">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Branch Name</th>
+                    <th>Location</th>
+                    <th>Mobile No</th>
+                    <th>Created At</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {branches.map((b) => (
+                    <tr key={b.id}>
+                      <td><strong>{b.name}</strong></td>
+                      <td>{b.location || <span style={{ color: 'var(--text-muted)' }}>None</span>}</td>
+                      <td>{b.mobile_no || <span style={{ color: 'var(--text-muted)' }}>None</span>}</td>
+                      <td>{new Date(b.created_at).toLocaleDateString()}</td>
+                    </tr>
+                  ))}
+                  {branches.length === 0 && (
+                    <tr>
+                      <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>
+                        No branches defined yet. Create your first branch on the right!
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Add Branch Form */}
+          <div className="card">
+            <h3>Add New Branch</h3>
+            <form onSubmit={handleBranchSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="form-group">
+                <label className="form-label" htmlFor="branch-name-input">Branch Name</label>
+                <input
+                  id="branch-name-input"
+                  type="text"
+                  className="input-control"
+                  value={branchForm.name}
+                  onChange={(e) => setBranchForm({ ...branchForm, name: e.target.value })}
+                  placeholder="e.g. KFC Velachery"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="branch-location-input">Location</label>
+                <input
+                  id="branch-location-input"
+                  type="text"
+                  className="input-control"
+                  value={branchForm.location}
+                  onChange={(e) => setBranchForm({ ...branchForm, location: e.target.value })}
+                  placeholder="e.g. Chennai"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="branch-phone-input">Mobile No</label>
+                <input
+                  id="branch-phone-input"
+                  type="text"
+                  className="input-control"
+                  value={branchForm.mobile_no}
+                  onChange={(e) => setBranchForm({ ...branchForm, mobile_no: e.target.value })}
+                  placeholder="e.g. +91 98765 43210"
+                />
+              </div>
+              <button type="submit" className="btn btn-primary" style={{ marginTop: '8px' }}>
+                Create Branch
               </button>
             </form>
           </div>

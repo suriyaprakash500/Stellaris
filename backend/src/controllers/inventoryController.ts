@@ -4,7 +4,21 @@ import prisma from '../db/prisma';
 // 1. Ingredients CRUD & Stock Monitoring
 export const getIngredients = async (req: Request, res: Response) => {
   try {
+    // @ts-ignore
+    const { role, branchId: userBranchId } = req.user;
+    const { branchId: queryBranchId } = req.query;
+    const where: any = {};
+
+    if (role === 'MANAGER' || role === 'KITCHEN_STAFF' || role === 'DELIVERY') {
+      if (userBranchId) {
+        where.branch_id = userBranchId;
+      }
+    } else if (queryBranchId && typeof queryBranchId === 'string' && queryBranchId !== '') {
+      where.branch_id = queryBranchId;
+    }
+
     const ingredients = await prisma.ingredient.findMany({
+      where,
       include: { vendor: true },
       orderBy: { name: 'asc' },
     });
@@ -25,6 +39,9 @@ export const getIngredients = async (req: Request, res: Response) => {
 export const createIngredient = async (req: Request, res: Response) => {
   try {
     const { name, current_stock, unit, min_stock_alert, vendor_id } = req.body;
+    // @ts-ignore
+    const { role, branchId: userBranchId } = req.user;
+    const branch_id = role === 'OWNER' || role === 'ADMIN' ? req.body.branch_id : userBranchId;
 
     if (!name || current_stock === undefined || !unit || min_stock_alert === undefined) {
       return res.status(400).json({ error: 'Name, current_stock, unit, and min_stock_alert are required' });
@@ -37,6 +54,7 @@ export const createIngredient = async (req: Request, res: Response) => {
         unit,
         min_stock_alert: parseFloat(min_stock_alert),
         vendor_id,
+        branch_id: branch_id || null,
       },
     });
 
@@ -44,7 +62,7 @@ export const createIngredient = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error creating ingredient:', error);
     if (error.code === 'P2002') {
-      return res.status(400).json({ error: 'Ingredient with this name already exists' });
+      return res.status(400).json({ error: 'Ingredient with this name already exists in this branch' });
     }
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -54,11 +72,19 @@ export const updateIngredient = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
     const { name, current_stock, unit, min_stock_alert, vendor_id } = req.body;
+    // @ts-ignore
+    const { role, branchId: userBranchId } = req.user;
 
     const existing = await prisma.ingredient.findUnique({ where: { id } });
     if (!existing) {
       return res.status(404).json({ error: 'Ingredient not found' });
     }
+
+    if (role !== 'OWNER' && role !== 'ADMIN' && existing.branch_id !== userBranchId) {
+      return res.status(403).json({ error: 'Forbidden: You cannot modify ingredients of another branch' });
+    }
+
+    const branch_id = role === 'OWNER' || role === 'ADMIN' ? req.body.branch_id : undefined;
 
     const ingredient = await prisma.ingredient.update({
       where: { id },
@@ -68,6 +94,7 @@ export const updateIngredient = async (req: Request, res: Response) => {
         unit,
         min_stock_alert: min_stock_alert !== undefined ? parseFloat(min_stock_alert) : undefined,
         vendor_id,
+        branch_id: branch_id !== undefined ? (branch_id || null) : undefined,
       },
     });
 
@@ -81,10 +108,16 @@ export const updateIngredient = async (req: Request, res: Response) => {
 export const deleteIngredient = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
+    // @ts-ignore
+    const { role, branchId: userBranchId } = req.user;
 
     const existing = await prisma.ingredient.findUnique({ where: { id } });
     if (!existing) {
       return res.status(404).json({ error: 'Ingredient not found' });
+    }
+
+    if (role !== 'OWNER' && role !== 'ADMIN' && existing.branch_id !== userBranchId) {
+      return res.status(403).json({ error: 'Forbidden: You cannot delete ingredients of another branch' });
     }
 
     await prisma.ingredient.delete({ where: { id } });
@@ -99,7 +132,7 @@ export const deleteIngredient = async (req: Request, res: Response) => {
 export const adjustStock = async (req: Request, res: Response) => {
   try {
     // @ts-ignore
-    const userId = req.user.id;
+    const { id: userId, role, branchId: userBranchId } = req.user;
     const { ingredient_id, quantity, type, reason } = req.body; // quantity can be positive (restock) or negative (waste/damage)
 
     if (!ingredient_id || quantity === undefined || !type) {
@@ -109,6 +142,10 @@ export const adjustStock = async (req: Request, res: Response) => {
     const ingredient = await prisma.ingredient.findUnique({ where: { id: ingredient_id } });
     if (!ingredient) {
       return res.status(404).json({ error: 'Ingredient not found' });
+    }
+
+    if (role !== 'OWNER' && role !== 'ADMIN' && ingredient.branch_id !== userBranchId) {
+      return res.status(403).json({ error: 'Forbidden: You cannot adjust stock for ingredients of another branch' });
     }
 
     const qtyVal = parseFloat(quantity);
@@ -224,6 +261,18 @@ export const deleteVendor = async (req: Request, res: Response) => {
 export const getRecipe = async (req: Request, res: Response) => {
   try {
     const menuItemId = req.params.menuItemId as string;
+    // @ts-ignore
+    const { role, branchId: userBranchId } = req.user;
+
+    const menuItem = await prisma.menuItem.findUnique({ where: { id: menuItemId } });
+    if (!menuItem) {
+      return res.status(404).json({ error: 'Menu item not found' });
+    }
+
+    if (role !== 'OWNER' && role !== 'ADMIN' && menuItem.branch_id !== userBranchId) {
+      return res.status(403).json({ error: 'Forbidden: You cannot view recipes of another branch' });
+    }
+
     const recipe = await prisma.recipeIngredient.findMany({
       where: { menu_item_id: menuItemId },
       include: { ingredient: true },
@@ -238,6 +287,8 @@ export const getRecipe = async (req: Request, res: Response) => {
 export const saveRecipe = async (req: Request, res: Response) => {
   try {
     const { menu_item_id, ingredients } = req.body; // ingredients is array of { ingredient_id, quantity }
+    // @ts-ignore
+    const { role, branchId: userBranchId } = req.user;
 
     if (!menu_item_id || !ingredients || !Array.isArray(ingredients)) {
       return res.status(400).json({ error: 'menu_item_id and ingredients array are required' });
@@ -246,6 +297,10 @@ export const saveRecipe = async (req: Request, res: Response) => {
     const menuItem = await prisma.menuItem.findUnique({ where: { id: menu_item_id } });
     if (!menuItem) {
       return res.status(404).json({ error: 'Menu item not found' });
+    }
+
+    if (role !== 'OWNER' && role !== 'ADMIN' && menuItem.branch_id !== userBranchId) {
+      return res.status(403).json({ error: 'Forbidden: You cannot modify recipes of another branch' });
     }
 
     // Save recipe inside transaction (delete existing, insert new)
@@ -266,6 +321,14 @@ export const saveRecipe = async (req: Request, res: Response) => {
         const dbIng = await tx.ingredient.findUnique({ where: { id: ingredient_id } });
         if (!dbIng) {
           throw new Error(`Ingredient not found: ${ingredient_id}`);
+        }
+
+        if (role !== 'OWNER' && role !== 'ADMIN' && dbIng.branch_id !== userBranchId) {
+          throw new Error(`Forbidden: Ingredient "${dbIng.name}" belongs to another branch`);
+        }
+
+        if (menuItem.branch_id !== dbIng.branch_id) {
+          throw new Error(`Ingredient "${dbIng.name}" belongs to a different branch than the menu item`);
         }
 
         const relation = await tx.recipeIngredient.create({

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
-import { ShoppingCart, Award, MessageSquare, Star, Clock } from 'lucide-react';
+import { ShoppingCart, MessageSquare, Star, Clock } from 'lucide-react';
 
 interface MenuItem {
   id: string;
@@ -36,16 +36,15 @@ export const CustomerPortal: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState('UPI');
   const [tipAmount, setTipAmount] = useState(0);
 
-  // Orders tracker & loyalty
+  // Orders tracker
   const [orders, setOrders] = useState<any[]>([]);
-  const [loyaltyPoints, setLoyaltyPoints] = useState(0);
 
   // Feedback Modal states
   const [feedbackOrder, setFeedbackOrder] = useState<any | null>(null);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
 
-  // Fetch Menu, Loyalty, and Orders
+  // Fetch Menu and Orders
   const fetchData = async () => {
     try {
       const menu = await api.getMenuItems();
@@ -56,9 +55,6 @@ export const CustomerPortal: React.FC = () => {
 
       const customerOrders = await api.getOrders();
       setOrders(customerOrders);
-
-      const profile = await api.getCustomerProfile();
-      setLoyaltyPoints(profile?.loyalty_points || 0);
     } catch (err: any) {
       console.error(err);
     }
@@ -159,19 +155,10 @@ export const CustomerPortal: React.FC = () => {
 
   return (
     <div style={{ position: 'relative', width: '100%' }}>
-      {/* Upper Loyalty Header */}
-      <div className="card" style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <h2>Welcome, {user?.name}!</h2>
-          <p style={{ color: 'var(--text-secondary)' }}>Browse the stellar menu and order fresh delights</p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--bg-tertiary)', padding: '12px 24px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
-          <Award size={24} style={{ color: 'var(--warning)' }} />
-          <div>
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Loyalty Balance</div>
-            <div style={{ fontSize: '20px', fontWeight: 'bold', color: 'var(--warning)' }}>{loyaltyPoints} Points</div>
-          </div>
-        </div>
+      {/* Upper Welcome Header */}
+      <div className="card" style={{ marginBottom: '24px' }}>
+        <h2>Welcome, {user?.name}!</h2>
+        <p style={{ color: 'var(--text-secondary)' }}>Browse the stellar menu and order fresh delights</p>
       </div>
 
       {/* Menu Sections & Items */}
