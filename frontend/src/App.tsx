@@ -143,6 +143,13 @@ const DashboardContent: React.FC = () => {
               <ShoppingBag size={18} />
               <span>Order Food</span>
             </li>
+            <li
+              className={`nav-item ${activeView === 'tracking' ? 'active' : ''}`}
+              onClick={() => setActiveView('tracking')}
+            >
+              <Clock size={18} />
+              <span>Track Orders</span>
+            </li>
           </ul>
         </nav>
 
@@ -193,7 +200,8 @@ const DashboardContent: React.FC = () => {
         {activeView === 'manager' && (user.role === 'ADMIN' || user.role === 'MANAGER') && <ManagerDashboard />}
         {activeView === 'kitchen' && (user.role === 'ADMIN' || user.role === 'MANAGER' || user.role === 'KITCHEN_STAFF') && <KitchenScreen />}
         {activeView === 'delivery' && (user.role === 'ADMIN' || user.role === 'MANAGER' || user.role === 'DELIVERY') && <DeliveryPortal />}
-        {activeView === 'customer' && <CustomerPortal />}
+        {activeView === 'customer' && <CustomerPortal activeSubView="order" />}
+        {activeView === 'tracking' && <CustomerPortal activeSubView="tracking" />}
       </main>
 
       {/* Shifts calendar and Swap Request modal for employees */}
