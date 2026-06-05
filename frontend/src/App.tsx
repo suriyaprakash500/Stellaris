@@ -214,9 +214,9 @@ const DashboardContent: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="main-content">
-        {activeView === 'manager' && (user.role === 'ADMIN' || user.role === 'MANAGER') && <ManagerDashboard />}
-        {activeView === 'kitchen' && (user.role === 'ADMIN' || user.role === 'MANAGER' || user.role === 'KITCHEN_STAFF') && <KitchenScreen />}
-        {activeView === 'delivery' && (user.role === 'ADMIN' || user.role === 'MANAGER' || user.role === 'DELIVERY') && <DeliveryPortal />}
+        {activeView === 'manager' && ['OWNER', 'ADMIN', 'MANAGER'].includes(user.role) && <ManagerDashboard />}
+        {activeView === 'kitchen' && ['OWNER', 'ADMIN', 'MANAGER', 'SHOP_CAPTAIN', 'BILLER', 'COOK', 'KITCHEN_STAFF'].includes(user.role) && <KitchenScreen />}
+        {activeView === 'delivery' && ['OWNER', 'ADMIN', 'MANAGER', 'SHOP_CAPTAIN', 'HELPER', 'DELIVERY'].includes(user.role) && <DeliveryPortal />}
         {activeView === 'customer' && <CustomerPortal activeSubView="order" />}
         {activeView === 'tracking' && <CustomerPortal activeSubView="tracking" />}
       </main>
