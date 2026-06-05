@@ -125,7 +125,7 @@ export const ManagerDashboard: React.FC = () => {
 
   useEffect(() => {
     const loadBranches = async () => {
-      if (user?.role === 'OWNER') {
+      if (user?.role === 'OWNER' || user?.role === 'ADMIN') {
         try {
           const list = await api.getBranches();
           setBranches(list);
@@ -139,7 +139,7 @@ export const ManagerDashboard: React.FC = () => {
 
   const fetchReportsAndData = async () => {
     try {
-      const branchParam = user?.role === 'OWNER' ? selectedBranchId : undefined;
+      const branchParam = (user?.role === 'OWNER' || user?.role === 'ADMIN') ? selectedBranchId : undefined;
 
       if (activeTab === 'sales') {
         const sales = await api.getSalesReport(branchParam ? { branchId: branchParam } : undefined);
@@ -189,7 +189,7 @@ export const ManagerDashboard: React.FC = () => {
         const userT = t.find((ts: any) => ts.user_id === user?.id && ts.clock_out === null);
         setActiveTimesheet(userT || null);
       } else if (activeTab === 'branches') {
-        if (user?.role === 'OWNER') {
+        if (user?.role === 'OWNER' || user?.role === 'ADMIN') {
           const list = await api.getBranches();
           setBranches(list);
         }
@@ -524,7 +524,7 @@ export const ManagerDashboard: React.FC = () => {
           <p style={{ color: 'var(--text-secondary)' }}>Manage restaurant inventory, scheduling, menus, and view reports.</p>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          {user?.role === 'OWNER' && (
+          {(user?.role === 'OWNER' || user?.role === 'ADMIN') && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '12px' }}>
               <label htmlFor="dashboard-branch-select" style={{ fontSize: '14px', fontWeight: 'bold', color: 'var(--text-secondary)' }}>Branch:</label>
               <select
@@ -576,7 +576,7 @@ export const ManagerDashboard: React.FC = () => {
         <button className={`chip ${activeTab === 'business' ? 'active' : ''}`} onClick={() => setActiveTab('business')}>
           <Settings size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} /> Business Settings
         </button>
-        {user?.role === 'OWNER' && (
+        {(user?.role === 'OWNER' || user?.role === 'ADMIN') && (
           <button className={`chip ${activeTab === 'branches' ? 'active' : ''}`} onClick={() => setActiveTab('branches')}>
             <Settings size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} /> Branch Admin
           </button>
@@ -875,7 +875,7 @@ export const ManagerDashboard: React.FC = () => {
                   placeholder="Leave blank for placeholder"
                 />
               </div>
-              {user?.role === 'OWNER' && (
+              {(user?.role === 'OWNER' || user?.role === 'ADMIN') && (
                 <div className="form-group">
                   <label className="form-label" htmlFor="menu-branch-select">Branch Scope</label>
                   <select
@@ -1093,7 +1093,7 @@ export const ManagerDashboard: React.FC = () => {
                     required
                   />
                 </div>
-              {user?.role === 'OWNER' && (
+              {(user?.role === 'OWNER' || user?.role === 'ADMIN') && (
                 <div className="form-group">
                   <label className="form-label" htmlFor="ing-branch-select">Branch Scope</label>
                   <select
@@ -1654,7 +1654,7 @@ export const ManagerDashboard: React.FC = () => {
         </div>
       )}
       {/* 7. BRANCH SETUP */}
-      {activeTab === 'branches' && user?.role === 'OWNER' && (
+      {activeTab === 'branches' && (user?.role === 'OWNER' || user?.role === 'ADMIN') && (
         <div className="grid-cols-3" style={{ alignItems: 'flex-start' }}>
           {/* List of current branches */}
           <div className="card" style={{ gridColumn: 'span 2' }}>

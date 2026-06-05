@@ -53,11 +53,11 @@ const DashboardContent: React.FC = () => {
   useEffect(() => {
     // Set default active view based on role
     if (user) {
-      if (user.role === 'ADMIN' || user.role === 'MANAGER') {
+      if (['OWNER', 'ADMIN', 'MANAGER'].includes(user.role)) {
         setActiveView('manager');
-      } else if (user.role === 'KITCHEN_STAFF') {
+      } else if (['COOK', 'KITCHEN_STAFF', 'SHOP_CAPTAIN'].includes(user.role)) {
         setActiveView('kitchen');
-      } else if (user.role === 'DELIVERY') {
+      } else if (['HELPER', 'DELIVERY'].includes(user.role)) {
         setActiveView('delivery');
       } else {
         setActiveView('customer');
@@ -117,8 +117,8 @@ const DashboardContent: React.FC = () => {
 
         <nav style={{ flexGrow: 1 }}>
           <ul className="nav-list">
-            {/* Admin / Manager Navigation */}
-            {(user.role === 'ADMIN' || user.role === 'MANAGER') && (
+             {/* Admin / Manager Navigation */}
+            {['OWNER', 'ADMIN', 'MANAGER'].includes(user.role) && (
               <>
                 <li
                   className={`nav-item ${activeView === 'manager' ? 'active' : ''}`}
@@ -131,7 +131,7 @@ const DashboardContent: React.FC = () => {
             )}
 
             {/* Kitchen Navigation */}
-            {(user.role === 'ADMIN' || user.role === 'MANAGER' || user.role === 'KITCHEN_STAFF') && (
+            {['OWNER', 'ADMIN', 'MANAGER', 'SHOP_CAPTAIN', 'BILLER', 'COOK', 'KITCHEN_STAFF'].includes(user.role) && (
               <li
                 className={`nav-item ${activeView === 'kitchen' ? 'active' : ''}`}
                 onClick={() => setActiveView('kitchen')}
@@ -142,7 +142,7 @@ const DashboardContent: React.FC = () => {
             )}
 
             {/* Delivery Navigation */}
-            {(user.role === 'ADMIN' || user.role === 'MANAGER' || user.role === 'DELIVERY') && (
+            {['OWNER', 'ADMIN', 'MANAGER', 'SHOP_CAPTAIN', 'HELPER', 'DELIVERY'].includes(user.role) && (
               <li
                 className={`nav-item ${activeView === 'delivery' ? 'active' : ''}`}
                 onClick={() => setActiveView('delivery')}
