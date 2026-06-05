@@ -153,13 +153,15 @@ const DashboardContent: React.FC = () => {
             )}
 
             {/* Customer Navigation */}
-            <li
-              className={`nav-item ${activeView === 'customer' ? 'active' : ''}`}
-              onClick={() => setActiveView('customer')}
-            >
-              <ShoppingBag size={18} />
-              <span>Order Food</span>
-            </li>
+            {['OWNER', 'ADMIN', 'MANAGER', 'BILLER', 'CUSTOMER'].includes(user.role) && (
+              <li
+                className={`nav-item ${activeView === 'customer' ? 'active' : ''}`}
+                onClick={() => setActiveView('customer')}
+              >
+                <ShoppingBag size={18} />
+                <span>Order Food</span>
+              </li>
+            )}
             <li
               className={`nav-item ${activeView === 'tracking' ? 'active' : ''}`}
               onClick={() => setActiveView('tracking')}

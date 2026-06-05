@@ -188,13 +188,11 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
       if (order.status !== 'PENDING') {
         return res.status(400).json({ error: 'Orders can only be cancelled while PENDING' });
       }
-    } else if (role === 'COOK' || role === 'KITCHEN_STAFF') {
-      if (status !== 'PREPARING' && status !== 'READY') {
-        return res.status(400).json({ error: 'Kitchen/Cook staff can only mark orders as PREPARING or READY' });
-      }
-    } else if (role === 'DELIVERY' || role === 'HELPER') {
-      if (status !== 'DELIVERED') {
-        return res.status(400).json({ error: 'Delivery and Helper staff can only mark orders as DELIVERED' });
+    } else {
+      // Authorized staff roles can transition orders through the workflow
+      const validStaffStatuses = ['PREPARING', 'READY', 'DELIVERED', 'CANCELLED'];
+      if (!validStaffStatuses.includes(status)) {
+        return res.status(400).json({ error: 'Invalid status transition for staff' });
       }
     }
 
