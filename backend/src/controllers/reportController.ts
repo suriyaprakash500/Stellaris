@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../db/prisma';
+import { BRANCH_RESTRICTED_ROLES } from '../middleware/authMiddleware';
 
 // 1. Sales Report
 export const getSalesReport = async (req: Request, res: Response) => {
@@ -9,7 +10,7 @@ export const getSalesReport = async (req: Request, res: Response) => {
     const { branchId: queryBranchId } = req.query;
 
     const where: any = { status: 'DELIVERED' };
-    if (role === 'MANAGER' || role === 'KITCHEN_STAFF' || role === 'DELIVERY') {
+    if (BRANCH_RESTRICTED_ROLES.includes(role)) {
       if (userBranchId) {
         where.branch_id = userBranchId;
       }
@@ -86,7 +87,7 @@ export const getInventoryReport = async (req: Request, res: Response) => {
     const ingredientWhere: any = {};
     const wastageWhere: any = { type: 'WASTE' };
 
-    if (role === 'MANAGER' || role === 'KITCHEN_STAFF' || role === 'DELIVERY') {
+    if (BRANCH_RESTRICTED_ROLES.includes(role)) {
       if (userBranchId) {
         ingredientWhere.branch_id = userBranchId;
         wastageWhere.ingredient = { branch_id: userBranchId };
@@ -148,7 +149,7 @@ export const getEmployeePerformanceReport = async (req: Request, res: Response) 
 
     const timesheetWhere: any = {};
 
-    if (role === 'MANAGER' || role === 'KITCHEN_STAFF' || role === 'DELIVERY') {
+    if (BRANCH_RESTRICTED_ROLES.includes(role)) {
       if (userBranchId) {
         timesheetWhere.user = { branch_id: userBranchId };
       }
@@ -189,6 +190,113 @@ export const getEmployeePerformanceReport = async (req: Request, res: Response) 
     res.json(performance);
   } catch (error) {
     console.error('Error compiling employee performance report:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// 4. Order Timing Report
+export const getOrderTimingReport = async (req: Request, res: Response) => {
+  try {
+    const { branchId: queryBranchId } = req.query;
+    const where: any = {};
+    if (queryBranchId && typeof queryBranchId === 'string' && queryBranchId !== '') {
+      where.branch_id = queryBranchId;
+    }
+
+    const orders = await prisma.order.findMany({
+      where,
+      include: {
+        user: { select: { name: true } },
+        branch: { select: { name: true } }
+      },
+      orderBy: { created_at: 'desc' }
+    });
+
+    let totalPrepTime = 0;
+    let prepCount = 0;
+    let totalDeliveryTime = 0;
+    let deliveryCount = 0;
+    let totalFulfillmentTime = 0;
+    let fulfillmentCount = 0;
+    let delayedCount = 0;
+
+    const trackedOrders = orders.map(order => {
+      const created = new Date(order.created_at).getTime();
+      const prepStart = order.prep_started_at ? new Date(order.prep_started_at).getTime() : null;
+      const ready = order.ready_at ? new Date(order.ready_at).getTime() : null;
+      const delivered = order.delivered_at ? new Date(order.delivered_at).getTime() : null;
+
+      let prepDurationMin = null;
+      let deliveryDurationMin = null;
+      let totalDurationMin = null;
+
+      if (prepStart && ready) {
+        prepDurationMin = parseFloat(((ready - prepStart) / 60000).toFixed(2));
+        totalPrepTime += (ready - prepStart);
+        prepCount++;
+      }
+
+      if (ready && delivered) {
+        deliveryDurationMin = parseFloat(((delivered - ready) / 60000).toFixed(2));
+        totalDeliveryTime += (delivered - ready);
+        deliveryCount++;
+      }
+
+      if (delivered) {
+        totalDurationMin = parseFloat(((delivered - created) / 60000).toFixed(2));
+        totalFulfillmentTime += (delivered - created);
+        fulfillmentCount++;
+      } else if (order.status !== 'CANCELLED') {
+        totalDurationMin = parseFloat(((Date.now() - created) / 60000).toFixed(2));
+      }
+
+      // 10 minutes limit (600,000 milliseconds)
+      const limitMs = 10 * 60 * 1000;
+      let isDelayed = false;
+      if (delivered) {
+        isDelayed = (delivered - created) > limitMs;
+      } else if (order.status !== 'CANCELLED') {
+        isDelayed = (Date.now() - created) > limitMs;
+      }
+
+      if (isDelayed) {
+        delayedCount++;
+      }
+
+      return {
+        id: order.id,
+        status: order.status,
+        customerName: order.user?.name || 'Guest',
+        branchName: order.branch?.name || 'Global',
+        created_at: order.created_at,
+        accepted_at: order.accepted_at,
+        prep_started_at: order.prep_started_at,
+        ready_at: order.ready_at,
+        delivered_at: order.delivered_at,
+        prepDurationMin,
+        deliveryDurationMin,
+        totalDurationMin,
+        isDelayed
+      };
+    });
+
+    const avgPrepTimeMin = prepCount > 0 ? parseFloat(((totalPrepTime / prepCount) / 60000).toFixed(2)) : 0;
+    const avgDeliveryTimeMin = deliveryCount > 0 ? parseFloat(((totalDeliveryTime / deliveryCount) / 60000).toFixed(2)) : 0;
+    const avgFulfillmentTimeMin = fulfillmentCount > 0 ? parseFloat(((totalFulfillmentTime / fulfillmentCount) / 60000).toFixed(2)) : 0;
+
+    res.json({
+      summary: {
+        totalOrdersCount: orders.length,
+        avgPrepTimeMin,
+        avgDeliveryTimeMin,
+        avgFulfillmentTimeMin,
+        delayedOrdersCount: delayedCount,
+        delayedPercentage: orders.length > 0 ? parseFloat(((delayedCount / orders.length) * 100).toFixed(1)) : 0
+      },
+      orders: trackedOrders
+    });
+  } catch (error) {
+    console.error('Error fetching order timing report:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };

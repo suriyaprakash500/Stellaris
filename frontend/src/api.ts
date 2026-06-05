@@ -124,5 +124,6 @@ export const api = {
   },
   getInventoryReport: (branchId?: string) => request(branchId ? `/reports/inventory?branchId=${branchId}` : '/reports/inventory'),
   getEmployeePerformanceReport: (branchId?: string) => request(branchId ? `/reports/performance?branchId=${branchId}` : '/reports/performance'),
+  getOrderTimingReport: (branchId?: string) => request(branchId ? `/reports/order-timing?branchId=${branchId}` : '/reports/order-timing'),
 };
 

@@ -36,6 +36,12 @@ export const CustomerPortal: React.FC<{ activeSubView?: 'order' | 'tracking' }> 
   const [paymentMethod, setPaymentMethod] = useState('UPI');
   const [tipAmount, setTipAmount] = useState(0);
 
+  // Search, sort, and display view toggles
+  const [displayMode, setDisplayMode] = useState<'grid' | 'list'>('grid');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortKey, setSortKey] = useState<'name' | 'price' | 'category'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
   // Orders tracker
   const [orders, setOrders] = useState<any[]>([]);
 
@@ -148,9 +154,24 @@ export const CustomerPortal: React.FC<{ activeSubView?: 'order' | 'tracking' }> 
     }
   };
 
-  const filteredMenuItems = menuItems.filter(
-    (item) => (activeCategory === 'All' || item.category === activeCategory) && item.is_available
-  );
+  const filteredAndSortedMenuItems = menuItems
+    .filter((item) => {
+      const matchesCategory = activeCategory === 'All' || item.category === activeCategory;
+      const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
+      return matchesCategory && matchesSearch && item.is_available;
+    })
+    .sort((a, b) => {
+      let comparison = 0;
+      if (sortKey === 'name') {
+        comparison = a.name.localeCompare(b.name);
+      } else if (sortKey === 'price') {
+        comparison = a.price - b.price;
+      } else if (sortKey === 'category') {
+        comparison = a.category.localeCompare(b.category);
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
 
   return (
     <div style={{ position: 'relative', width: '100%' }}>
@@ -178,23 +199,114 @@ export const CustomerPortal: React.FC<{ activeSubView?: 'order' | 'tracking' }> 
             </div>
           </div>
 
-          <div className="grid-cols-3" style={{ marginBottom: '40px' }}>
-            {filteredMenuItems.map((item) => (
-              <div key={item.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px', height: '100%' }}>
-                {item.image_url ? (
-                  <img src={item.image_url} alt={item.name} style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: 'var(--radius-md)' }} />
-                ) : (
-                  <div style={{ width: '100%', height: '150px', backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>No Image</div>
-                )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <h4 style={{ margin: 0 }}>{item.name}</h4>
-                  <span style={{ fontWeight: 'bold', color: 'var(--primary-hover)', fontSize: '18px' }}>₹{item.price.toFixed(2)}</span>
-                </div>
-                <p style={{ fontSize: '14px', color: 'var(--text-secondary)', flexGrow: 1, margin: 0 }}>{item.description || 'No description available'}</p>
-                <button className="btn btn-primary" onClick={() => openCustomizer(item)}>Add to Order</button>
-              </div>
-            ))}
+          {/* Search, Filter, Sort and View Toggle Bar */}
+          <div className="card" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', padding: '16px' }}>
+            <div style={{ display: 'flex', gap: '12px', flexGrow: 1, minWidth: '250px' }}>
+              <input
+                type="text"
+                placeholder="Search menu items..."
+                className="input-control"
+                style={{ margin: 0 }}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Sort By:</span>
+              <select
+                className="input-control"
+                style={{ width: '130px', margin: 0, padding: '6px 10px' }}
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value as any)}
+              >
+                <option value="name">Name</option>
+                <option value="price">Price</option>
+                <option value="category">Category</option>
+              </select>
+              <button
+                className="btn btn-secondary"
+                style={{ padding: '6px 12px', fontSize: '13px' }}
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              >
+                {sortOrder === 'asc' ? 'Asc ⬆️' : 'Desc ⬇️'}
+              </button>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: 'var(--bg-tertiary)', padding: '4px', borderRadius: 'var(--radius-md)' }}>
+              <button
+                className={`chip ${displayMode === 'grid' ? 'active' : ''}`}
+                style={{ margin: 0, padding: '6px 12px', borderRadius: 'var(--radius-md)', border: 'none' }}
+                onClick={() => setDisplayMode('grid')}
+              >
+                Grid View
+              </button>
+              <button
+                className={`chip ${displayMode === 'list' ? 'active' : ''}`}
+                style={{ margin: 0, padding: '6px 12px', borderRadius: 'var(--radius-md)', border: 'none' }}
+                onClick={() => setDisplayMode('list')}
+              >
+                List View
+              </button>
+            </div>
           </div>
+
+          {displayMode === 'grid' ? (
+            <div className="grid-cols-3" style={{ marginBottom: '40px' }}>
+              {filteredAndSortedMenuItems.map((item) => (
+                <div key={item.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px', height: '100%' }}>
+                  {item.image_url ? (
+                    <img src={item.image_url} alt={item.name} style={{ width: '100%', height: '150px', objectFit: 'cover', borderRadius: 'var(--radius-md)' }} />
+                  ) : (
+                    <div style={{ width: '100%', height: '150px', backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>No Image</div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <h4 style={{ margin: 0 }}>{item.name}</h4>
+                    <span style={{ fontWeight: 'bold', color: 'var(--primary-hover)', fontSize: '18px' }}>₹{item.price.toFixed(2)}</span>
+                  </div>
+                  <p style={{ fontSize: '14px', color: 'var(--text-secondary)', flexGrow: 1, margin: 0 }}>{item.description || 'No description available'}</p>
+                  <button className="btn btn-primary" onClick={() => openCustomizer(item)}>Add to Order</button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="table-container" style={{ marginBottom: '40px' }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Item Name</th>
+                    <th>Category</th>
+                    <th style={{ textAlign: 'right' }}>Price</th>
+                    <th style={{ textAlign: 'center' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredAndSortedMenuItems.map((item) => (
+                    <tr key={item.id}>
+                      <td>
+                        <div style={{ fontWeight: 600 }}>{item.name}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{item.description || 'No description'}</div>
+                      </td>
+                      <td>
+                        <span className="badge badge-pending" style={{ color: 'var(--text-primary)', textTransform: 'capitalize' }}>{item.category}</span>
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: 'bold' }}>₹{item.price.toFixed(2)}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '13px' }} onClick={() => openCustomizer(item)}>
+                          Add to Order
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredAndSortedMenuItems.length === 0 && (
+                    <tr>
+                      <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>
+                        No menu items found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {/* Cart Float Button */}
           {cart.length > 0 && (

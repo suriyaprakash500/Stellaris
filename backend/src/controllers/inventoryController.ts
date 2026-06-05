@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../db/prisma';
+import { BRANCH_RESTRICTED_ROLES } from '../middleware/authMiddleware';
 
 // 1. Ingredients CRUD & Stock Monitoring
 export const getIngredients = async (req: Request, res: Response) => {
@@ -9,7 +10,7 @@ export const getIngredients = async (req: Request, res: Response) => {
     const { branchId: queryBranchId } = req.query;
     const where: any = {};
 
-    if (role === 'MANAGER' || role === 'KITCHEN_STAFF' || role === 'DELIVERY') {
+    if (BRANCH_RESTRICTED_ROLES.includes(role)) {
       if (userBranchId) {
         where.branch_id = userBranchId;
       }

@@ -20,6 +20,17 @@ import {
 const DashboardContent: React.FC = () => {
   const { user, logout, showToast } = useAuth();
   const [activeView, setActiveView] = useState<string>('');
+  const [businessName, setBusinessName] = useState<string>('Loading...');
+
+  const fetchBusinessName = async () => {
+    try {
+      const settings = await api.getBusinessSettings();
+      setBusinessName(settings.shop_name || 'Stellaris POS');
+    } catch (err) {
+      console.error('Failed to load business settings:', err);
+      setBusinessName('Stellaris POS');
+    }
+  };
   
   // Shifts modal for staff
   const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
@@ -52,6 +63,7 @@ const DashboardContent: React.FC = () => {
         setActiveView('customer');
       }
       fetchStaffStatus();
+      fetchBusinessName();
     }
   }, [user]);
 
@@ -93,9 +105,14 @@ const DashboardContent: React.FC = () => {
     <div className="app-container">
       {/* Sidebar navigation */}
       <aside className="sidebar">
-        <div className="logo-container">
-          <div className="logo-icon">S</div>
-          <div className="logo-text">Stellaris</div>
+        <div className="logo-container" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '4px', height: 'auto', marginBottom: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="logo-icon">S</div>
+            <div className="logo-text">Stellaris</div>
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500, paddingLeft: '4px' }}>
+            Business Owner: {businessName}
+          </div>
         </div>
 
         <nav style={{ flexGrow: 1 }}>

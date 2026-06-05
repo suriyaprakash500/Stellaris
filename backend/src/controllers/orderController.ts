@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import prisma from '../db/prisma';
 import { OrderStatus } from '@prisma/client';
+import { BRANCH_RESTRICTED_ROLES } from '../middleware/authMiddleware';
+import { logAudit } from '../utils/auditLogger';
 
 export const createOrder = async (req: Request, res: Response) => {
   try {
@@ -95,11 +97,16 @@ export const createOrder = async (req: Request, res: Response) => {
               menu_item: true,
             },
           },
+          user: { select: { name: true } },
         },
       });
 
       return newOrder;
     });
+
+    // @ts-ignore
+    const userObj = result.user;
+    await logAudit(userId, userObj?.name || 'Customer', 'ORDER_CREATED', `Created order ${result.id.slice(0, 8)} totaling ₹${result.total_amount.toFixed(2)}`, result.branch_id);
 
     res.status(201).json(result);
   } catch (error: any) {
@@ -114,11 +121,11 @@ export const getOrders = async (req: Request, res: Response) => {
     const { id: userId, role, branchId: userBranchId } = req.user;
 
     let orders;
-    if (role === 'ADMIN' || role === 'MANAGER' || role === 'KITCHEN_STAFF' || role === 'DELIVERY' || role === 'OWNER') {
+    if (role !== 'CUSTOMER') {
       const { branchId: queryBranchId } = req.query;
       const where: any = {};
 
-      if (role === 'MANAGER' || role === 'KITCHEN_STAFF' || role === 'DELIVERY') {
+      if (BRANCH_RESTRICTED_ROLES.includes(role)) {
         if (userBranchId) {
           where.branch_id = userBranchId;
         }
@@ -181,21 +188,34 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
       if (order.status !== 'PENDING') {
         return res.status(400).json({ error: 'Orders can only be cancelled while PENDING' });
       }
-    } else if (role === 'KITCHEN_STAFF') {
+    } else if (role === 'COOK' || role === 'KITCHEN_STAFF') {
       if (status !== 'PREPARING' && status !== 'READY') {
-        return res.status(400).json({ error: 'Kitchen staff can only mark orders as PREPARING or READY' });
+        return res.status(400).json({ error: 'Kitchen/Cook staff can only mark orders as PREPARING or READY' });
       }
-    } else if (role === 'DELIVERY') {
+    } else if (role === 'DELIVERY' || role === 'HELPER') {
       if (status !== 'DELIVERED') {
-        return res.status(400).json({ error: 'Delivery staff can only mark orders as DELIVERED' });
+        return res.status(400).json({ error: 'Delivery and Helper staff can only mark orders as DELIVERED' });
       }
+    }
+
+    const updateData: any = { status };
+    if (status === 'PREPARING') {
+      updateData.accepted_at = new Date();
+      updateData.prep_started_at = new Date();
+    } else if (status === 'READY') {
+      updateData.ready_at = new Date();
+    } else if (status === 'DELIVERED') {
+      updateData.delivered_at = new Date();
     }
 
     const updatedOrder = await prisma.order.update({
       where: { id },
-      data: { status },
+      data: updateData,
       include: { order_items: { include: { menu_item: true } } },
     });
+
+    const actor = await prisma.user.findUnique({ where: { id: userId } });
+    await logAudit(actor?.id, actor?.name, 'ORDER_UPDATED', `Updated order ${updatedOrder.id.slice(0, 8)} status to ${status}`, updatedOrder.branch_id);
 
     res.json(updatedOrder);
   } catch (error) {

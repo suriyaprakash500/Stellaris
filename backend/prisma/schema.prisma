@@ -20,6 +20,10 @@ enum Role {
   DELIVERY
   CUSTOMER
   OWNER
+  BILLER
+  HELPER
+  COOK
+  SHOP_CAPTAIN
 }
 
 enum OrderStatus {
@@ -95,6 +99,10 @@ model Order {
   total_amount Float
   created_at   DateTime    @default(now())
   updated_at   DateTime    @updatedAt
+  accepted_at     DateTime?
+  prep_started_at DateTime?
+  ready_at        DateTime?
+  delivered_at    DateTime?
 
   branch_id    String?
   branch       Branch?  @relation(fields: [branch_id], references: [id], onDelete: SetNull)
@@ -236,5 +244,15 @@ model Branch {
   menu_items  MenuItem[]
   orders      Order[]
   ingredients Ingredient[]
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  user_id     String?
+  user_name   String?
+  action      String
+  details     String
+  branch_id   String?
+  timestamp   DateTime @default(now())
 }
 

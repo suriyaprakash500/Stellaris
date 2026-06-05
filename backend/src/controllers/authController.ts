@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { logAudit } from '../utils/auditLogger';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import prisma from '../db/prisma';
@@ -29,6 +30,7 @@ export const register = async (req: Request, res: Response) => {
     const payload = { id: user.id, role: user.role, branchId: user.branch_id };
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
 
+    await logAudit(user.id, user.name, 'USER_REGISTERED', `User registered with role ${user.role}`, user.branch_id);
     res.status(201).json({ token, user: { id: user.id, email: user.email, role: user.role, branchId: user.branch_id } });
   } catch (error) {
     console.error('Registration error:', error);
@@ -53,6 +55,7 @@ export const login = async (req: Request, res: Response) => {
     const payload = { id: user.id, role: user.role, branchId: user.branch_id };
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
 
+    await logAudit(user.id, user.name, 'USER_LOGIN', `User logged in successfully`, user.branch_id);
     res.json({ token, user: { id: user.id, email: user.email, role: user.role, branchId: user.branch_id } });
   } catch (error) {
     console.error('Login error:', error);
@@ -145,10 +148,24 @@ export const resetPassword = async (req: Request, res: Response) => {
       data: { password_hash },
     });
 
+    await logAudit(user.id, user.name, 'USER_PASSWORD_RESET', `User password was reset`, user.branch_id);
     console.log(`Password reset successful for user: ${user.email}`);
     res.json({ message: 'Password has been reset successfully' });
   } catch (error) {
     console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+export const logout = async (req: Request, res: Response) => {
+  try {
+    // @ts-ignore
+    const { id, role, branchId } = req.user;
+    const user = await prisma.user.findUnique({ where: { id } });
+    await logAudit(id, user?.name || 'Unknown', 'USER_LOGOUT', `User logged out successfully`, branchId);
+    res.json({ message: 'Logged out successfully' });
+  } catch (error) {
+    console.error('Logout logging error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };

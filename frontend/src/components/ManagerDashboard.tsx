@@ -18,12 +18,13 @@ import {
 
 export const ManagerDashboard: React.FC = () => {
   const { showToast, user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'sales' | 'menu' | 'categories' | 'inventory' | 'recipes' | 'staff' | 'business' | 'branches'>('sales');
+  const [activeTab, setActiveTab] = useState<'sales' | 'menu' | 'categories' | 'inventory' | 'recipes' | 'staff' | 'business' | 'branches' | 'orderTiming'>('sales');
 
   // Sales and reports state
   const [salesReport, setSalesReport] = useState<any>(null);
   const [inventoryReport, setInventoryReport] = useState<any>(null);
   const [performanceReport, setPerformanceReport] = useState<any[]>([]);
+  const [orderTimingReport, setOrderTimingReport] = useState<any>(null);
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
 
   // Menu items state
@@ -98,6 +99,7 @@ export const ManagerDashboard: React.FC = () => {
 
   // For manager clock in/out simulation
   const [activeTimesheet, setActiveTimesheet] = useState<any>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   // Branches admin state
   const [branches, setBranches] = useState<any[]>([]);
@@ -191,6 +193,11 @@ export const ManagerDashboard: React.FC = () => {
           const list = await api.getBranches();
           setBranches(list);
         }
+      } else if (activeTab === 'orderTiming') {
+        if (user?.role === 'OWNER' || user?.role === 'ADMIN') {
+          const report = await api.getOrderTimingReport(branchParam);
+          setOrderTimingReport(report);
+        }
       }
     } catch (err: any) {
       console.error(err);
@@ -255,9 +262,34 @@ export const ManagerDashboard: React.FC = () => {
   // Category Form Handlers
   const handleCategorySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const name = categoryForm.name;
+    if (!name) return;
+    const trimmed = name.trim();
+    if (trimmed.length === 0) {
+      showToast('Category name cannot be empty or contain only spaces.', 'error');
+      return;
+    }
+    if (trimmed.length > 50) {
+      showToast('Category name cannot exceed 50 characters.', 'error');
+      return;
+    }
+    const alphanumericRegex = /[a-zA-Z0-9]/;
+    if (!alphanumericRegex.test(trimmed)) {
+      showToast('Category name must contain at least one letter or number.', 'error');
+      return;
+    }
+
+    const isDuplicate = categories.some(
+      (cat) => cat.name.trim().toLowerCase() === trimmed.toLowerCase()
+    );
+    if (isDuplicate) {
+      showToast('Category already exists. Please use the existing category or enter a different name.', 'error');
+      return;
+    }
+
     try {
-      await api.createCategory(categoryForm);
-      showToast('Category created', 'success');
+      await api.createCategory({ name: trimmed });
+      showToast('Category created successfully', 'success');
       setCategoryForm({ name: '' });
       fetchReportsAndData();
     } catch (err: any) {
@@ -549,6 +581,11 @@ export const ManagerDashboard: React.FC = () => {
             <Settings size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} /> Branch Admin
           </button>
         )}
+        {(user?.role === 'OWNER' || user?.role === 'ADMIN') && (
+          <button className={`chip ${activeTab === 'orderTiming' ? 'active' : ''}`} onClick={() => setActiveTab('orderTiming')}>
+            <Clock size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} /> Order Performance
+          </button>
+        )}
       </div>
 
       {/* TAB CONTENTS */}
@@ -761,23 +798,69 @@ export const ManagerDashboard: React.FC = () => {
                   required
                 />
               </div>
-              <div className="form-group">
-                <label className="form-label" htmlFor="menu-cat-select">Category</label>
-                <select
-                  id="menu-cat-select"
+              <div className="form-group" style={{ position: 'relative' }}>
+                <label className="form-label" htmlFor="menu-cat-input">Category</label>
+                <input
+                  id="menu-cat-input"
+                  type="text"
                   className="input-control"
+                  placeholder="Type category name..."
                   value={menuForm.category}
-                  onChange={(e) => setMenuForm({ ...menuForm, category: e.target.value })}
+                  onChange={(e) => {
+                    setMenuForm({ ...menuForm, category: e.target.value });
+                    setShowSuggestions(true);
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                   required
-                >
-                  <option value="">Select Category</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.name}>{cat.name}</option>
-                  ))}
-                </select>
-                {categories.length === 0 && (
-                  <div style={{ fontSize: '12px', color: 'var(--danger)', marginTop: '4px' }}>
-                    Please configure categories in the Category Setup tab first.
+                  autoComplete="off"
+                />
+                
+                {/* Auto-suggestions dropdown */}
+                {showSuggestions && menuForm.category && (
+                  <div className="card" style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    zIndex: 1000,
+                    maxHeight: '180px',
+                    overflowY: 'auto',
+                    marginTop: '4px',
+                    padding: '8px 0',
+                    boxShadow: 'var(--shadow-lg)',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: 'var(--bg-secondary)'
+                  }}>
+                    {categories
+                      .filter(cat => cat.name.toLowerCase().includes(menuForm.category.toLowerCase()) && cat.name.toLowerCase() !== menuForm.category.toLowerCase())
+                      .map(cat => (
+                        <div
+                          key={cat.id}
+                          style={{
+                            padding: '8px 16px',
+                            cursor: 'pointer',
+                            transition: 'background 0.2s',
+                          }}
+                          onMouseDown={() => {
+                            setMenuForm({ ...menuForm, category: cat.name });
+                            setShowSuggestions(false);
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
+                        >
+                          {cat.name}
+                        </div>
+                      ))}
+                    {categories.filter(cat => cat.name.toLowerCase().includes(menuForm.category.toLowerCase())).length === 0 && (
+                      <div style={{ padding: '8px 16px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                        No match. Creates new category on save.
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1649,6 +1732,109 @@ export const ManagerDashboard: React.FC = () => {
                 Create Branch
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 8. ORDER TIMING PERFORMANCE */}
+      {activeTab === 'orderTiming' && (user?.role === 'OWNER' || user?.role === 'ADMIN') && orderTimingReport && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+          {/* Summary Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '24px' }}>
+            <div className="card" style={{ textAlign: 'center' }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '8px' }}>Avg Prep Duration</div>
+              <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--success)' }}>
+                {orderTimingReport.summary.avgPrepTimeMin.toFixed(1)} mins
+              </div>
+            </div>
+            <div className="card" style={{ textAlign: 'center' }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '8px' }}>Avg Delivery Duration</div>
+              <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--info)' }}>
+                {orderTimingReport.summary.avgDeliveryTimeMin.toFixed(1)} mins
+              </div>
+            </div>
+            <div className="card" style={{ textAlign: 'center' }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '8px' }}>Avg Fulfillment Duration</div>
+              <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--primary-hover)' }}>
+                {orderTimingReport.summary.avgFulfillmentTimeMin.toFixed(1)} mins
+              </div>
+            </div>
+            <div className="card" style={{ textAlign: 'center', borderColor: orderTimingReport.summary.delayedOrdersCount > 0 ? 'var(--danger)' : 'var(--border-color)', boxShadow: orderTimingReport.summary.delayedOrdersCount > 0 ? '0 0 10px rgba(239, 68, 68, 0.15)' : 'none' }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '8px' }}>Delayed Orders (&gt;10m)</div>
+              <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--danger)' }}>
+                {orderTimingReport.summary.delayedOrdersCount} ({orderTimingReport.summary.delayedPercentage}%)
+              </div>
+            </div>
+          </div>
+
+          {/* Orders Timing Table */}
+          <div className="card">
+            <h3>Detailed Order Milestones & Timing</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '16px' }}>
+              Timing is tracked from order creation (intake) to final delivery. Late orders (over 10 mins) are highlighted in red.
+            </p>
+            <div className="table-container">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Order Ref</th>
+                    <th>Branch</th>
+                    <th>Customer</th>
+                    <th>Intake Time</th>
+                    <th>Prep Started</th>
+                    <th>Ready Time</th>
+                    <th>Delivered Time</th>
+                    <th>Prep (min)</th>
+                    <th>Delivery (min)</th>
+                    <th>Total (min)</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orderTimingReport.orders.map((o: any) => {
+                    return (
+                      <tr
+                        key={o.id}
+                        style={{
+                          backgroundColor: o.isDelayed ? 'rgba(239, 68, 68, 0.08)' : 'inherit',
+                          borderLeft: o.isDelayed ? '4px solid var(--danger)' : 'none'
+                        }}
+                      >
+                        <td>
+                          <strong>#{o.id.slice(0, 8)}</strong>
+                          {o.isDelayed && (
+                            <div style={{ fontSize: '10px', color: 'var(--danger)', fontWeight: 'bold', marginTop: '2px' }}>
+                              ⚠️ LATE (&gt;10m)
+                            </div>
+                          )}
+                        </td>
+                        <td>{o.branchName}</td>
+                        <td>{o.customerName}</td>
+                        <td>{new Date(o.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td>
+                        <td>{o.prep_started_at ? new Date(o.prep_started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : <span style={{ color: 'var(--text-muted)' }}>-</span>}</td>
+                        <td>{o.ready_at ? new Date(o.ready_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : <span style={{ color: 'var(--text-muted)' }}>-</span>}</td>
+                        <td>{o.delivered_at ? new Date(o.delivered_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : <span style={{ color: 'var(--text-muted)' }}>-</span>}</td>
+                        <td style={{ fontWeight: 'bold' }}>{o.prepDurationMin !== null ? `${o.prepDurationMin} m` : '-'}</td>
+                        <td style={{ fontWeight: 'bold' }}>{o.deliveryDurationMin !== null ? `${o.deliveryDurationMin} m` : '-'}</td>
+                        <td style={{ fontWeight: 'bold', color: o.isDelayed ? 'var(--danger)' : 'inherit' }}>
+                          {o.totalDurationMin !== null ? `${o.totalDurationMin} m` : '-'}
+                        </td>
+                        <td>
+                          <span className={`badge badge-${o.status.toLowerCase()}`}>{o.status}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {orderTimingReport.orders.length === 0 && (
+                    <tr>
+                      <td colSpan={11} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>
+                        No orders recorded yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

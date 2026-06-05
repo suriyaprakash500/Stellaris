@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import prisma from '../db/prisma';
 import { ShiftStatus } from '@prisma/client';
+import { BRANCH_RESTRICTED_ROLES } from '../middleware/authMiddleware';
+import { logAudit } from '../utils/auditLogger';
 
 // 1. Fetch employee users list (users that are staff)
 export const getEmployeesList = async (req: Request, res: Response) => {
@@ -11,11 +13,11 @@ export const getEmployeesList = async (req: Request, res: Response) => {
 
     const where: any = {
       role: {
-        in: ['ADMIN', 'MANAGER', 'KITCHEN_STAFF', 'DELIVERY', 'OWNER'],
+        in: ['ADMIN', 'MANAGER', 'KITCHEN_STAFF', 'DELIVERY', 'OWNER', 'BILLER', 'HELPER', 'COOK', 'SHOP_CAPTAIN'],
       },
     };
 
-    if (role === 'MANAGER' || role === 'KITCHEN_STAFF' || role === 'DELIVERY') {
+    if (BRANCH_RESTRICTED_ROLES.includes(role)) {
       if (userBranchId) {
         where.branch_id = userBranchId;
       }
@@ -83,7 +85,7 @@ export const createShift = async (req: Request, res: Response) => {
   try {
     const { user_id, start_time, end_time } = req.body;
     // @ts-ignore
-    const { role, branchId: userBranchId } = req.user;
+    const { role, id: activeUserId, branchId: userBranchId } = req.user;
 
     if (!user_id || !start_time || !end_time) {
       return res.status(400).json({ error: 'user_id, start_time, and end_time are required' });
@@ -105,7 +107,11 @@ export const createShift = async (req: Request, res: Response) => {
         end_time: new Date(end_time),
         status: 'ASSIGNED',
       },
+      include: { user: true }
     });
+
+    const actor = await prisma.user.findUnique({ where: { id: activeUserId } });
+    await logAudit(actor?.id, actor?.name, 'SHIFT_CREATED', `Created shift for ${shift.user.name}: ${shift.start_time.toISOString()} - ${shift.end_time.toISOString()}`, shift.user.branch_id);
 
     res.status(201).json(shift);
   } catch (error) {
@@ -166,7 +172,11 @@ export const updateShift = async (req: Request, res: Response) => {
     const updatedShift = await prisma.shift.update({
       where: { id },
       data: updateData,
+      include: { user: true }
     });
+
+    const actor = await prisma.user.findUnique({ where: { id: userId } });
+    await logAudit(actor?.id, actor?.name, 'SHIFT_UPDATED', `Updated shift status/times for ${updatedShift.user.name} to ${status || 'modified times'}`, updatedShift.user.branch_id);
 
     res.json(updatedShift);
   } catch (error) {
@@ -198,7 +208,10 @@ export const clockIn = async (req: Request, res: Response) => {
         user_id: userId,
         clock_in: new Date(),
       },
+      include: { user: true }
     });
+
+    await logAudit(timesheet.user.id, timesheet.user.name, 'CLOCK_IN', `Employee clocked in`, timesheet.user.branch_id);
 
     res.status(201).json(timesheet);
   } catch (error) {
@@ -234,7 +247,10 @@ export const clockOut = async (req: Request, res: Response) => {
         clock_out: clockOutTime,
         total_hours: hours,
       },
+      include: { user: true }
     });
+
+    await logAudit(timesheet.user.id, timesheet.user.name, 'CLOCK_OUT', `Employee clocked out. Hours worked: ${hours}`, timesheet.user.branch_id);
 
     res.json(timesheet);
   } catch (error) {
