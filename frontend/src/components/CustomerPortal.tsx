@@ -25,7 +25,20 @@ export const CustomerPortal: React.FC<{ activeSubView?: 'order' | 'tracking' }> 
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [activeCategory, setActiveCategory] = useState('All');
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    const userId = user?.id || 'guest';
+    const saved = localStorage.getItem(`stellaris_cart_${userId}`);
+    try {
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    const userId = user?.id || 'guest';
+    localStorage.setItem(`stellaris_cart_${userId}`, JSON.stringify(cart));
+  }, [cart, user?.id]);
   
   // Customization Modal states
   const [customizingItem, setCustomizingItem] = useState<MenuItem | null>(null);
