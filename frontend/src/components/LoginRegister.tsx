@@ -8,11 +8,13 @@ type AuthView = 'login' | 'register' | 'forgot' | 'reset';
 export const LoginRegister: React.FC = () => {
   const [view, setView] = useState<AuthView>('login');
   const [email, setEmail] = useState('');
+  const [mobileNo, setMobileNo] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [role, setRole] = useState('CUSTOMER');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [phone, setPhone] = useState('');
 
   // Forgot/Reset password states
   const [resetToken, setResetToken] = useState('');
@@ -39,7 +41,7 @@ export const LoginRegister: React.FC = () => {
     setSubmitting(true);
     try {
       if (view === 'register') {
-        await register(email, password, name, role);
+        await register(email, mobileNo, password, name, role);
       } else {
         await login(email, password);
       }
@@ -52,15 +54,15 @@ export const LoginRegister: React.FC = () => {
 
   const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) {
-      setError('Please enter your email address');
+    if (!phone.trim()) {
+      setError('Please enter your registered phone number');
       return;
     }
     setError('');
     setSubmitting(true);
     try {
-      await api.forgotPassword(email);
-      setSuccessMessage('If an account exists with that email, a password reset code has been generated. Check with your system administrator for the reset code.');
+      await api.forgotPassword(phone);
+      setSuccessMessage('If an account exists with that phone number, a password reset code has been generated. Check with your system administrator for the reset code.');
       setView('reset');
     } catch (err: any) {
       setError(err.message || 'Failed to process request. Please try again.');
@@ -116,7 +118,7 @@ export const LoginRegister: React.FC = () => {
           <p style={{ color: 'var(--text-secondary)' }}>
             {view === 'login' && 'Log in to manage operations'}
             {view === 'register' && 'Sign up to order and track shipments'}
-            {view === 'forgot' && 'Enter your email to receive a reset code'}
+            {view === 'forgot' && 'Enter your phone number to receive a reset code'}
             {view === 'reset' && 'Enter the reset code and your new password'}
           </p>
         </div>
@@ -151,18 +153,32 @@ export const LoginRegister: React.FC = () => {
         {(view === 'login' || view === 'register') && (
           <form onSubmit={handleLoginSubmit} id="auth-form">
             {view === 'register' && (
-              <div className="form-group">
-                <label className="form-label" htmlFor="name-input">Full Name</label>
-                <input
-                  id="name-input"
-                  type="text"
-                  className="input-control"
-                  placeholder="John Doe"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
-              </div>
+              <>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="name-input">Full Name</label>
+                  <input
+                    id="name-input"
+                    type="text"
+                    className="input-control"
+                    placeholder="John Doe"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="mobile-input">Phone Number</label>
+                  <input
+                    id="mobile-input"
+                    type="tel"
+                    className="input-control"
+                    placeholder="e.g., +91 9876543210"
+                    value={mobileNo}
+                    onChange={(e) => setMobileNo(e.target.value)}
+                    required
+                  />
+                </div>
+              </>
             )}
 
             <div className="form-group">
@@ -248,14 +264,14 @@ export const LoginRegister: React.FC = () => {
         {view === 'forgot' && (
           <form onSubmit={handleForgotSubmit} id="forgot-form">
             <div className="form-group">
-              <label className="form-label" htmlFor="forgot-email-input">Email Address</label>
+              <label className="form-label" htmlFor="forgot-phone-input">Phone Number</label>
               <input
-                id="forgot-email-input"
-                type="email"
+                id="forgot-phone-input"
+                type="tel"
                 className="input-control"
-                placeholder="name@example.com"
-                value={email}
-                onChange={(e) => { setEmail(e.target.value); setError(''); }}
+                placeholder="e.g., +91 9876543210"
+                value={phone}
+                onChange={(e) => { setPhone(e.target.value); setError(''); }}
                 required
               />
             </div>

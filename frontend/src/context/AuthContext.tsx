@@ -19,7 +19,7 @@ interface AuthContextType {
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string, role: string) => Promise<void>;
+  register: (email: string, mobile_no: string, password: string, name: string, role: string) => Promise<void>;
   logout: () => void;
   toasts: Toast[];
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
@@ -71,9 +71,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (email: string, password: string, name: string, role: string) => {
+  const register = async (email: string, mobile_no: string, password: string, name: string, role: string) => {
     try {
-      const data = await api.register({ email, password, name, role });
+      const data = await api.register({ email, mobile_no, password, name, role });
       localStorage.setItem('stellaris_token', data.token);
       setToken(data.token);
       setUser(data.user);

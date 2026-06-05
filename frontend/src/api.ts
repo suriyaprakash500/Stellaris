@@ -58,7 +58,7 @@ export const api = {
   login: (credentials: any) => request('/auth/login', { method: 'POST', body: JSON.stringify(credentials) }),
   register: (data: any) => request('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
   getProfile: () => request('/auth/profile'),
-  forgotPassword: (email: string) => request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
+  forgotPassword: (phone: string) => request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ phone }) }),
   resetPassword: (token: string, newPassword: string) => request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, newPassword }) }),
 
   // Menu

@@ -8,11 +8,20 @@ const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key';
 
 export const register = async (req: Request, res: Response) => {
   try {
-    const { email, password, name, role, branch_id } = req.body;
+    const { email, mobile_no, password, name, role, branch_id } = req.body;
+
+    if (!mobile_no) {
+      return res.status(400).json({ error: 'Phone number is required' });
+    }
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return res.status(400).json({ error: 'Email already exists' });
+    }
+
+    const existingPhone = await prisma.user.findUnique({ where: { mobile_no } });
+    if (existingPhone) {
+      return res.status(400).json({ error: 'Phone number already registered' });
     }
 
     const password_hash = await bcrypt.hash(password, 10);
@@ -20,6 +29,7 @@ export const register = async (req: Request, res: Response) => {
     const user = await prisma.user.create({
       data: {
         email,
+        mobile_no,
         password_hash,
         name,
         role: role || 'CUSTOMER',
@@ -31,7 +41,7 @@ export const register = async (req: Request, res: Response) => {
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
 
     await logAudit(user.id, user.name, 'USER_REGISTERED', `User registered with role ${user.role}`, user.branch_id);
-    res.status(201).json({ token, user: { id: user.id, email: user.email, role: user.role, branchId: user.branch_id } });
+    res.status(201).json({ token, user: { id: user.id, email: user.email, mobile_no: user.mobile_no, role: user.role, branchId: user.branch_id } });
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -81,30 +91,30 @@ export const getProfile = async (req: Request, res: Response) => {
 
 export const forgotPassword = async (req: Request, res: Response) => {
   try {
-    const { email } = req.body;
+    const { phone } = req.body;
 
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
+    if (!phone) {
+      return res.status(400).json({ error: 'Phone number is required' });
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { mobile_no: phone } });
 
-    // Always return success to prevent email enumeration attacks
+    // Always return success to prevent user enumeration attacks
     if (!user) {
-      return res.json({ message: 'If an account exists with that email, a reset code has been generated.' });
+      return res.json({ message: 'If an account exists with that phone number, a reset code has been generated.' });
     }
 
     // Generate a short-lived reset token (15 minutes)
     const resetToken = jwt.sign({ id: user.id, purpose: 'password_reset' }, JWT_SECRET, { expiresIn: '15m' });
 
-    // Log the reset token to server console (replace with email service in production)
+    // Log the reset token to server console (replace with SMS service in production)
     console.log(`\n========== PASSWORD RESET ==========`);
-    console.log(`User: ${user.email}`);
+    console.log(`User Phone: ${user.mobile_no} (${user.email})`);
     console.log(`Reset Code: ${resetToken}`);
     console.log(`Expires: 15 minutes`);
     console.log(`====================================\n`);
 
-    res.json({ message: 'If an account exists with that email, a reset code has been generated.' });
+    res.json({ message: 'If an account exists with that phone number, a reset code has been generated.' });
   } catch (error) {
     console.error('Forgot password error:', error);
     res.status(500).json({ error: 'Internal server error' });
