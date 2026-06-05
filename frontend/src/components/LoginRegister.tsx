@@ -202,10 +202,15 @@ export const LoginRegister: React.FC = () => {
                   required
                 >
                   <option value="CUSTOMER">Customer</option>
-                  <option value="KITCHEN_STAFF">Kitchen Staff</option>
-                  <option value="DELIVERY">Delivery Rider</option>
+                  <option value="OWNER">Owner</option>
+                  <option value="ADMIN">CEO / System Admin</option>
                   <option value="MANAGER">Manager</option>
-                  <option value="ADMIN">System Admin</option>
+                  <option value="SHOP_CAPTAIN">Shop Captain</option>
+                  <option value="BILLER">Biller</option>
+                  <option value="COOK">Cook</option>
+                  <option value="HELPER">Helper</option>
+                  <option value="KITCHEN_STAFF">Kitchen Staff (Legacy)</option>
+                  <option value="DELIVERY">Delivery Rider (Legacy)</option>
                 </select>
               </div>
             )}
