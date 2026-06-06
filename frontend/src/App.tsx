@@ -25,7 +25,7 @@ const DashboardContent: React.FC = () => {
   const fetchBusinessName = async () => {
     try {
       const settings = await api.getBusinessSettings();
-      setBusinessName(settings.shop_name || 'Stellaris POS');
+      setBusinessName(settings.owner_name || 'Stellaris POS');
     } catch (err) {
       console.error('Failed to load business settings:', err);
       setBusinessName('Stellaris POS');

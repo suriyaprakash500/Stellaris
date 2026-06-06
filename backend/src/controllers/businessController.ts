@@ -4,6 +4,13 @@ import prisma from '../db/prisma';
 export const getBusinessSettings = async (req: Request, res: Response) => {
   try {
     const settings = await prisma.businessSettings.findFirst();
+    const owner = await prisma.user.findFirst({
+      where: { role: 'OWNER' },
+      select: { name: true }
+    });
+
+    const ownerName = owner?.name || 'Stellaris POS';
+
     if (!settings) {
       // Return default placeholders if no settings have been saved yet
       return res.json({
@@ -11,10 +18,14 @@ export const getBusinessSettings = async (req: Request, res: Response) => {
         fssai_no: 'Not Configured',
         mobile_no: '9876543210',
         location: 'Main Branch',
-        branch_id: 'BR-01'
+        branch_id: 'BR-01',
+        owner_name: ownerName
       });
     }
-    res.json(settings);
+    res.json({
+      ...settings,
+      owner_name: ownerName
+    });
   } catch (error) {
     console.error('Error fetching business settings:', error);
     res.status(500).json({ error: 'Internal server error' });
