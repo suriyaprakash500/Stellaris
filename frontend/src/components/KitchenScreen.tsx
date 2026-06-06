@@ -37,12 +37,18 @@ export const KitchenScreen: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const getElapsedTimeInfo = (createdAt: string) => {
-    const createdTime = new Date(createdAt).getTime();
-    const elapsedMs = now.getTime() - createdTime;
+  const getElapsedTimeInfo = (stageTime: string | null | undefined, intakeTime: string) => {
+    const stageStartTime = new Date(stageTime || intakeTime).getTime();
+    const intakeStartTime = new Date(intakeTime).getTime();
+    
+    const elapsedMs = now.getTime() - stageStartTime;
     const elapsedMin = Math.floor(elapsedMs / 60000);
     const elapsedSec = Math.floor((elapsedMs % 60000) / 1000);
-    const isLate = elapsedMin >= 10;
+    
+    const totalMs = now.getTime() - intakeStartTime;
+    const totalMin = Math.floor(totalMs / 60000);
+    const isLate = totalMin >= 10;
+    
     return {
       formatted: `${elapsedMin}m ${elapsedSec}s`,
       isLate
@@ -86,7 +92,7 @@ export const KitchenScreen: React.FC = () => {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto' }}>
             {pendingOrders.map((order) => {
-              const elapsedInfo = getElapsedTimeInfo(order.created_at);
+              const elapsedInfo = getElapsedTimeInfo(order.created_at, order.created_at);
               return (
                 <div
                   key={order.id}
@@ -116,7 +122,7 @@ export const KitchenScreen: React.FC = () => {
                     <span className="order-time">{new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '4px 0', fontSize: '13px' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>Elapsed Time:</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>Pending Time:</span>
                     <span style={{ color: elapsedInfo.isLate ? 'var(--danger)' : 'var(--success)', fontWeight: 'bold' }}>
                       {elapsedInfo.formatted}
                     </span>
@@ -156,7 +162,7 @@ export const KitchenScreen: React.FC = () => {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto' }}>
             {preparingOrders.map((order) => {
-              const elapsedInfo = getElapsedTimeInfo(order.created_at);
+              const elapsedInfo = getElapsedTimeInfo(order.prep_started_at || order.accepted_at, order.created_at);
               return (
                 <div
                   key={order.id}
@@ -186,7 +192,7 @@ export const KitchenScreen: React.FC = () => {
                     <span className="order-time">{new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '4px 0', fontSize: '13px' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>Elapsed Time:</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>Preparing Time:</span>
                     <span style={{ color: elapsedInfo.isLate ? 'var(--danger)' : 'var(--success)', fontWeight: 'bold' }}>
                       {elapsedInfo.formatted}
                     </span>
@@ -226,7 +232,7 @@ export const KitchenScreen: React.FC = () => {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto' }}>
             {readyOrders.map((order) => {
-              const elapsedInfo = getElapsedTimeInfo(order.created_at);
+              const elapsedInfo = getElapsedTimeInfo(order.ready_at, order.created_at);
               return (
                 <div
                   key={order.id}
@@ -256,7 +262,7 @@ export const KitchenScreen: React.FC = () => {
                     <span className="order-time">{new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '4px 0', fontSize: '13px' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>Elapsed Time:</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>Ready Time:</span>
                     <span style={{ color: elapsedInfo.isLate ? 'var(--danger)' : 'var(--success)', fontWeight: 'bold' }}>
                       {elapsedInfo.formatted}
                     </span>
