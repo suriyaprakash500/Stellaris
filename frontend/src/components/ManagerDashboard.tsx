@@ -1008,15 +1008,48 @@ export const ManagerDashboard: React.FC = () => {
                 )}
               </div>
               <div className="form-group">
-                <label className="form-label" htmlFor="menu-img-input">Image URL</label>
+                <label className="form-label" htmlFor="menu-img-file">Upload Image</label>
                 <input
-                  id="menu-img-input"
-                  type="text"
+                  id="menu-img-file"
+                  type="file"
+                  accept="image/*"
                   className="input-control"
-                  value={menuForm.image_url}
-                  onChange={(e) => setMenuForm({ ...menuForm, image_url: e.target.value })}
-                  placeholder="Leave blank for placeholder"
+                  style={{ padding: '8px' }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setMenuForm({ ...menuForm, image_url: reader.result as string });
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
                 />
+                {menuForm.image_url && (
+                  <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Selected Image Preview:</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <img 
+                        src={menuForm.image_url} 
+                        alt="Preview" 
+                        style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }} 
+                      />
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary" 
+                        style={{ padding: '6px 12px', fontSize: '12px', height: 'auto' }}
+                        onClick={() => {
+                          setMenuForm({ ...menuForm, image_url: '' });
+                          const fileInput = document.getElementById('menu-img-file') as HTMLInputElement;
+                          if (fileInput) fileInput.value = '';
+                        }}
+                      >
+                        Remove Image
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
               {(user?.role === 'OWNER' || user?.role === 'ADMIN') && (
                 <div className="form-group">
