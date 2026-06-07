@@ -3,13 +3,32 @@ import prisma from '../db/prisma';
 
 export const getBusinessSettings = async (req: Request, res: Response) => {
   try {
-    const settings = await prisma.businessSettings.findFirst();
-    const owner = await prisma.user.findFirst({
-      where: { role: 'OWNER' },
-      select: { name: true }
-    });
+    // @ts-ignore
+    const { id: userId, role, businessId } = req.user;
 
-    const ownerName = owner?.name || 'Stellaris POS';
+    let ownerName = 'Stellaris POS';
+    if (role === 'OWNER') {
+      const owner = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true }
+      });
+      ownerName = owner?.name || 'Stellaris POS';
+    } else if (businessId) {
+      const business = await prisma.business.findUnique({
+        where: { id: businessId },
+        include: { owner: { select: { name: true } } }
+      });
+      ownerName = business?.owner?.name || 'Stellaris POS';
+    } else {
+      const owner = await prisma.user.findFirst({
+        where: { role: 'OWNER' },
+        orderBy: { created_at: 'asc' },
+        select: { name: true }
+      });
+      ownerName = owner?.name || 'Stellaris POS';
+    }
+
+    const settings = await prisma.businessSettings.findFirst();
 
     if (!settings) {
       // Return default placeholders if no settings have been saved yet
