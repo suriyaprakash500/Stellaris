@@ -17,14 +17,15 @@ export const getBusinessSettings = async (req: Request, res: Response) => {
         shop_name: 'Stellaris POS',
         fssai_no: 'Not Configured',
         mobile_no: '9876543210',
-        location: 'Main Branch',
-        branch_id: 'BR-01',
+        location: 'Main Business',
+        business_id: 'BUS-01',
         owner_name: ownerName
       });
     }
     res.json({
       ...settings,
-      owner_name: ownerName
+      owner_name: ownerName,
+      branch_id: settings.business_id // map to branch_id for backwards compatibility in frontend if needed
     });
   } catch (error) {
     console.error('Error fetching business settings:', error);
@@ -34,7 +35,8 @@ export const getBusinessSettings = async (req: Request, res: Response) => {
 
 export const updateBusinessSettings = async (req: Request, res: Response) => {
   try {
-    const { shop_name, fssai_no, mobile_no, location, branch_id } = req.body;
+    const { shop_name, fssai_no, mobile_no, location, business_id, branch_id } = req.body;
+    const targetBusinessId = business_id || branch_id;
 
     if (!shop_name || typeof shop_name !== 'string' || shop_name.trim() === '') {
       return res.status(400).json({ error: 'Shop name is required' });
@@ -54,7 +56,7 @@ export const updateBusinessSettings = async (req: Request, res: Response) => {
           fssai_no: fssai_no ? fssai_no.trim() : null,
           mobile_no: mobile_no ? mobile_no.trim() : null,
           location: location ? location.trim() : null,
-          branch_id: branch_id ? branch_id.trim() : null,
+          business_id: targetBusinessId ? targetBusinessId.trim() : null,
         },
       });
     } else {
@@ -64,7 +66,7 @@ export const updateBusinessSettings = async (req: Request, res: Response) => {
           fssai_no: fssai_no ? fssai_no.trim() : null,
           mobile_no: mobile_no ? mobile_no.trim() : null,
           location: location ? location.trim() : null,
-          branch_id: branch_id ? branch_id.trim() : null,
+          business_id: targetBusinessId ? targetBusinessId.trim() : null,
         },
       });
     }

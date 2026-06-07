@@ -61,7 +61,7 @@ export const createCategory = async (req: Request, res: Response) => {
     });
 
     const actor = await prisma.user.findUnique({ where: { id: userId } });
-    await logAudit(userId, actor?.name || 'Unknown', 'CATEGORY_CREATED', `Created category "${category.name}"`, actor?.branch_id);
+    await logAudit(userId, actor?.name || 'Unknown', 'CATEGORY_CREATED', `Created category "${category.name}"`, actor?.business_id);
 
     res.status(201).json(category);
   } catch (error) {
@@ -84,7 +84,7 @@ export const deleteCategory = async (req: Request, res: Response) => {
     await prisma.category.delete({ where: { id } });
 
     const actor = await prisma.user.findUnique({ where: { id: userId } });
-    await logAudit(userId, actor?.name || 'Unknown', 'CATEGORY_DELETED', `Deleted category "${existing.name}"`, actor?.branch_id);
+    await logAudit(userId, actor?.name || 'Unknown', 'CATEGORY_DELETED', `Deleted category "${existing.name}"`, actor?.business_id);
 
     res.json({ message: 'Category deleted successfully' });
   } catch (error) {

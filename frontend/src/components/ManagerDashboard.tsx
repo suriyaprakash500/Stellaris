@@ -18,7 +18,7 @@ import {
 
 export const ManagerDashboard: React.FC = () => {
   const { showToast, user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'sales' | 'menu' | 'categories' | 'inventory' | 'recipes' | 'staff' | 'business' | 'branches' | 'orderTiming'>('sales');
+  const [activeTab, setActiveTab] = useState<'sales' | 'menu' | 'categories' | 'inventory' | 'recipes' | 'staff' | 'business' | 'branches' | 'orderTiming' | 'users'>('sales');
 
   // Sales and reports state
   const [salesReport, setSalesReport] = useState<any>(null);
@@ -101,40 +101,163 @@ export const ManagerDashboard: React.FC = () => {
   const [activeTimesheet, setActiveTimesheet] = useState<any>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  // Branches admin state
+  // Businesses admin state
+  // Businesses and Branches state
+  const [businesses, setBusinesses] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState<string>('');
-  const [branchForm, setBranchForm] = useState({
+  
+  // Forms
+  const [businessesBrandForm, setBusinessesBrandForm] = useState({
+    name: ''
+  });
+  const [branchLocationForm, setBranchLocationForm] = useState({
     name: '',
     location: '',
-    mobile_no: ''
+    mobile_no: '',
+    business_id: ''
   });
 
-  const handleBranchSubmit = async (e: React.FormEvent) => {
+  // User Management state
+  const [newUserForm, setNewUserForm] = useState({
+    name: '',
+    email: '',
+    mobile_no: '',
+    role: 'STAFF', // STAFF or MANAGER
+    role_title: '', // Custom Designation (Cook, Cashier, Tea Boy, Helper, etc.)
+    password: '',
+    business_id: '',
+    branch_id: '', // physical location scoping
+    can_manage_menu: false,
+    can_prepare_food: false,
+    can_manage_delivery: false,
+    can_process_billing: false,
+    can_view_reports: false,
+    can_manage_inventory: false,
+    can_manage_recipes: false,
+    can_manage_shifts: false,
+    can_clock_in_out: true,
+  });
+
+  const handleBusinessBrandSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.createBranch(branchForm);
-      showToast('Branch created successfully', 'success');
-      setBranchForm({ name: '', location: '', mobile_no: '' });
-      const list = await api.getBranches();
-      setBranches(list);
+      await api.createBusiness(businessesBrandForm);
+      showToast('Business Brand created successfully', 'success');
+      setBusinessesBrandForm({ name: '' });
+      const bizList = await api.getBusinesses();
+      setBusinesses(bizList);
     } catch (err: any) {
       showToast(err.message || 'Action failed', 'error');
     }
   };
 
+  const handleBranchLocationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.createBranch(branchLocationForm);
+      showToast('Branch Location created successfully', 'success');
+      setBranchLocationForm({ name: '', location: '', mobile_no: '', business_id: '' });
+      const brList = await api.getBranches();
+      setBranches(brList);
+    } catch (err: any) {
+      showToast(err.message || 'Action failed', 'error');
+    }
+  };
+
+  const handleDesignationChange = (designation: string) => {
+    let perms = {
+      can_manage_menu: false,
+      can_prepare_food: false,
+      can_manage_delivery: false,
+      can_process_billing: false,
+      can_view_reports: false,
+      can_manage_inventory: false,
+      can_manage_recipes: false,
+      can_manage_shifts: false,
+      can_clock_in_out: true,
+    };
+
+    const lower = designation.toLowerCase().trim();
+    if (lower === 'cook') {
+      perms.can_prepare_food = true;
+    } else if (lower === 'cashier') {
+      perms.can_process_billing = true;
+    } else if (lower === 'helper' || lower === 'tea boy') {
+      // helper and tea boy only have clock in/out enabled by default
+    }
+
+    setNewUserForm(prev => ({
+      ...prev,
+      role_title: designation === 'Custom' ? '' : designation,
+      ...perms
+    }));
+  };
+
+  const handleUserSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const targetBusinessId = (user?.role === 'OWNER' || user?.role === 'ADMIN') ? newUserForm.business_id : user?.businessId;
+      const targetBranchId = (user?.role === 'OWNER' || user?.role === 'ADMIN') ? newUserForm.branch_id : user?.branchId;
+      
+      if (!targetBusinessId) {
+        showToast('Please select a business brand to assign the employee to', 'error');
+        return;
+      }
+      if (!targetBranchId) {
+        showToast('Please select a physical branch location to assign the employee to', 'error');
+        return;
+      }
+
+      await api.createEmployee({
+        ...newUserForm,
+        business_id: targetBusinessId,
+        branch_id: targetBranchId
+      });
+
+      showToast('Employee account created successfully!', 'success');
+      setNewUserForm({
+        name: '',
+        email: '',
+        mobile_no: '',
+        role: 'STAFF',
+        role_title: '',
+        password: '',
+        business_id: '',
+        branch_id: '',
+        can_manage_menu: false,
+        can_prepare_food: false,
+        can_manage_delivery: false,
+        can_process_billing: false,
+        can_view_reports: false,
+        can_manage_inventory: false,
+        can_manage_recipes: false,
+        can_manage_shifts: false,
+        can_clock_in_out: true,
+      });
+
+      const branchParam = (user?.role === 'OWNER' || user?.role === 'ADMIN') ? selectedBranchId : undefined;
+      const list = await api.getEmployeesList(branchParam);
+      setEmployees(list);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to create user account', 'error');
+    }
+  };
+
   useEffect(() => {
-    const loadBranches = async () => {
+    const loadInitialData = async () => {
       if (user?.role === 'OWNER' || user?.role === 'ADMIN') {
         try {
-          const list = await api.getBranches();
-          setBranches(list);
+          const bizList = await api.getBusinesses();
+          setBusinesses(bizList);
+          const brList = await api.getBranches();
+          setBranches(brList);
         } catch (err) {
-          console.error('Failed to load branches:', err);
+          console.error('Failed to load initial businesses/branches:', err);
         }
       }
     };
-    loadBranches();
+    loadInitialData();
   }, [user?.role]);
 
   const fetchReportsAndData = async () => {
@@ -188,10 +311,21 @@ export const ManagerDashboard: React.FC = () => {
         // check if currently clocked in
         const userT = t.find((ts: any) => ts.user_id === user?.id && ts.clock_out === null);
         setActiveTimesheet(userT || null);
+      } else if (activeTab === 'users') {
+        const list = await api.getEmployeesList(branchParam);
+        setEmployees(list);
+        if (user?.role === 'OWNER' || user?.role === 'ADMIN') {
+          const listB = await api.getBusinesses();
+          setBusinesses(listB);
+          const listBr = await api.getBranches();
+          setBranches(listBr);
+        }
       } else if (activeTab === 'branches') {
         if (user?.role === 'OWNER' || user?.role === 'ADMIN') {
-          const list = await api.getBranches();
-          setBranches(list);
+          const listB = await api.getBusinesses();
+          setBusinesses(listB);
+          const listBr = await api.getBranches();
+          setBranches(listBr);
         }
       } else if (activeTab === 'orderTiming') {
         if (user?.role === 'OWNER' || user?.role === 'ADMIN') {
@@ -530,14 +664,18 @@ export const ManagerDashboard: React.FC = () => {
               <select
                 id="dashboard-branch-select"
                 className="input-control"
-                style={{ width: '180px', margin: 0, padding: '8px 12px', height: 'auto' }}
+                style={{ width: '220px', margin: 0, padding: '8px 12px', height: 'auto' }}
                 value={selectedBranchId}
                 onChange={(e) => setSelectedBranchId(e.target.value)}
               >
                 <option value="">All Branches</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
+                {branches.map((b) => {
+                  const parentBiz = businesses.find((biz) => biz.id === b.business_id);
+                  const displayName = parentBiz ? `${parentBiz.name} - ${b.name}` : b.name;
+                  return (
+                    <option key={b.id} value={b.id}>{displayName}</option>
+                  );
+                })}
               </select>
             </div>
           )}
@@ -576,9 +714,14 @@ export const ManagerDashboard: React.FC = () => {
         <button className={`chip ${activeTab === 'business' ? 'active' : ''}`} onClick={() => setActiveTab('business')}>
           <Settings size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} /> Business Settings
         </button>
+        {(user?.role === 'OWNER' || user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
+          <button className={`chip ${activeTab === 'users' ? 'active' : ''}`} onClick={() => setActiveTab('users')}>
+            <Users size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} /> User Management
+          </button>
+        )}
         {(user?.role === 'OWNER' || user?.role === 'ADMIN') && (
           <button className={`chip ${activeTab === 'branches' ? 'active' : ''}`} onClick={() => setActiveTab('branches')}>
-            <Settings size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} /> Branch Admin
+            <Settings size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} /> Manage Businesses
           </button>
         )}
         {(user?.role === 'OWNER' || user?.role === 'ADMIN') && (
@@ -877,7 +1020,7 @@ export const ManagerDashboard: React.FC = () => {
               </div>
               {(user?.role === 'OWNER' || user?.role === 'ADMIN') && (
                 <div className="form-group">
-                  <label className="form-label" htmlFor="menu-branch-select">Branch Scope</label>
+                  <label className="form-label" htmlFor="menu-branch-select">Business Brand Scope</label>
                   <select
                     id="menu-branch-select"
                     className="input-control"
@@ -885,8 +1028,8 @@ export const ManagerDashboard: React.FC = () => {
                     onChange={(e) => setMenuForm({ ...menuForm, branch_id: e.target.value })}
                   >
                     <option value="">-- None (Global) --</option>
-                    {branches.map((b) => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
+                    {businesses.map((biz) => (
+                      <option key={biz.id} value={biz.id}>{biz.name}</option>
                     ))}
                   </select>
                 </div>
@@ -1103,9 +1246,14 @@ export const ManagerDashboard: React.FC = () => {
                     onChange={(e) => setIngForm({ ...ingForm, branch_id: e.target.value })}
                   >
                     <option value="">-- None (Global) --</option>
-                    {branches.map((b) => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
-                    ))}
+                    {branches.map((b) => {
+                      const parentBiz = businesses.find((biz) => biz.id === b.business_id);
+                      return (
+                        <option key={b.id} value={b.id}>
+                          {parentBiz ? `${parentBiz.name} - ${b.name}` : b.name}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               )}
@@ -1653,35 +1801,76 @@ export const ManagerDashboard: React.FC = () => {
           </div>
         </div>
       )}
-      {/* 7. BRANCH SETUP */}
-      {activeTab === 'branches' && (user?.role === 'OWNER' || user?.role === 'ADMIN') && (
+      {/* 9. USER MANAGEMENT */}
+      {activeTab === 'users' && (user?.role === 'OWNER' || user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
         <div className="grid-cols-3" style={{ alignItems: 'flex-start' }}>
-          {/* List of current branches */}
+          {/* List of current employees */}
           <div className="card" style={{ gridColumn: 'span 2' }}>
-            <h3>Branches Admin Setup</h3>
+            <h3>User Management</h3>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
+              Directory of managers and operational staff accounts.
+            </p>
             <div className="table-container">
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Branch Name</th>
-                    <th>Location</th>
-                    <th>Mobile No</th>
-                    <th>Created At</th>
+                    <th>User Details</th>
+                    <th>System Role & Title</th>
+                    <th>Assigned Branch & Brand</th>
+                    <th>Permissions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {branches.map((b) => (
-                    <tr key={b.id}>
-                      <td><strong>{b.name}</strong></td>
-                      <td>{b.location || <span style={{ color: 'var(--text-muted)' }}>None</span>}</td>
-                      <td>{b.mobile_no || <span style={{ color: 'var(--text-muted)' }}>None</span>}</td>
-                      <td>{new Date(b.created_at).toLocaleDateString()}</td>
-                    </tr>
-                  ))}
-                  {branches.length === 0 && (
+                  {employees.map((emp) => {
+                    const empBusiness = businesses.find((b) => b.id === emp.business_id);
+                    const empBranch = branches.find((b) => b.id === emp.branch_id);
+                    return (
+                      <tr key={emp.id}>
+                        <td>
+                          <strong>{emp.name}</strong>
+                          <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{emp.email}</div>
+                          {emp.mobile_no && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{emp.mobile_no}</div>}
+                        </td>
+                        <td>
+                          <span className={`badge ${emp.role === 'OWNER' ? 'badge-delivered' : emp.role === 'MANAGER' ? 'badge-preparing' : 'badge-pending'}`} style={{ marginRight: '6px' }}>
+                            {emp.role}
+                          </span>
+                          {emp.role_title && (
+                            <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                              ({emp.role_title})
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          {emp.role === 'OWNER' ? (
+                            <span style={{ color: 'var(--text-muted)' }}>All Locations</span>
+                          ) : (
+                            <div>
+                              <div><strong>{empBranch?.name || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Unassigned Branch</span>}</strong></div>
+                              <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Brand: {empBusiness?.name || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Unassigned Brand</span>}</div>
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '300px' }}>
+                            {emp.can_manage_menu && <span className="badge" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '10px', padding: '2px 6px' }}>Menu</span>}
+                            {emp.can_prepare_food && <span className="badge" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '10px', padding: '2px 6px' }}>Kitchen</span>}
+                            {emp.can_manage_delivery && <span className="badge" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '10px', padding: '2px 6px' }}>Delivery</span>}
+                            {emp.can_process_billing && <span className="badge" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '10px', padding: '2px 6px' }}>POS</span>}
+                            {emp.can_view_reports && <span className="badge" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '10px', padding: '2px 6px' }}>Reports</span>}
+                            {emp.can_manage_inventory && <span className="badge" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '10px', padding: '2px 6px' }}>Inventory</span>}
+                            {emp.can_manage_recipes && <span className="badge" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '10px', padding: '2px 6px' }}>Recipes</span>}
+                            {emp.can_manage_shifts && <span className="badge" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '10px', padding: '2px 6px' }}>Shifts</span>}
+                            {emp.can_clock_in_out && <span className="badge" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '10px', padding: '2px 6px' }}>Clock</span>}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {employees.length === 0 && (
                     <tr>
                       <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>
-                        No branches defined yet. Create your first branch on the right!
+                        No staff accounts created yet.
                       </td>
                     </tr>
                   )}
@@ -1690,49 +1879,471 @@ export const ManagerDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Add Branch Form */}
+          {/* Add Employee Form */}
           <div className="card">
-            <h3>Add New Branch</h3>
-            <form onSubmit={handleBranchSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h3>Add Employee / Manager</h3>
+            <form onSubmit={handleUserSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div className="form-group">
-                <label className="form-label" htmlFor="branch-name-input">Branch Name</label>
+                <label className="form-label" htmlFor="user-name-input">Full Name</label>
                 <input
-                  id="branch-name-input"
+                  id="user-name-input"
                   type="text"
                   className="input-control"
-                  value={branchForm.name}
-                  onChange={(e) => setBranchForm({ ...branchForm, name: e.target.value })}
-                  placeholder="e.g. KFC Velachery"
+                  value={newUserForm.name}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })}
+                  placeholder="e.g. Jane Doe"
                   required
                 />
               </div>
+
               <div className="form-group">
-                <label className="form-label" htmlFor="branch-location-input">Location</label>
+                <label className="form-label" htmlFor="user-email-input">Email Address</label>
                 <input
-                  id="branch-location-input"
-                  type="text"
+                  id="user-email-input"
+                  type="email"
                   className="input-control"
-                  value={branchForm.location}
-                  onChange={(e) => setBranchForm({ ...branchForm, location: e.target.value })}
-                  placeholder="e.g. Chennai"
+                  value={newUserForm.email}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
+                  placeholder="e.g. jane@example.com"
+                  required
                 />
               </div>
+
               <div className="form-group">
-                <label className="form-label" htmlFor="branch-phone-input">Mobile No</label>
+                <label className="form-label" htmlFor="user-phone-input">Phone Number</label>
                 <input
-                  id="branch-phone-input"
-                  type="text"
+                  id="user-phone-input"
+                  type="tel"
                   className="input-control"
-                  value={branchForm.mobile_no}
-                  onChange={(e) => setBranchForm({ ...branchForm, mobile_no: e.target.value })}
-                  placeholder="e.g. +91 98765 43210"
+                  value={newUserForm.mobile_no}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, mobile_no: e.target.value })}
+                  placeholder="e.g. 9876543210"
                 />
               </div>
-              <button type="submit" className="btn btn-primary" style={{ marginTop: '8px' }}>
-                Create Branch
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="user-role-select">System Role</label>
+                <select
+                  id="user-role-select"
+                  className="input-control"
+                  value={newUserForm.role}
+                  onChange={(e) => {
+                    const newRole = e.target.value;
+                    setNewUserForm(prev => ({
+                      ...prev,
+                      role: newRole,
+                      role_title: newRole === 'MANAGER' ? 'Manager' : prev.role_title
+                    }));
+                  }}
+                  required
+                >
+                  <option value="STAFF">STAFF (Operational Staff)</option>
+                  <option value="MANAGER">MANAGER (Business Manager)</option>
+                </select>
+              </div>
+
+              {newUserForm.role === 'STAFF' && (
+                <div className="form-group">
+                  <label className="form-label" htmlFor="user-designation-select">Job Designation</label>
+                  <select
+                    id="user-designation-select"
+                    className="input-control"
+                    value={
+                      ['Cook', 'Cashier', 'Helper', 'Tea Boy'].includes(newUserForm.role_title)
+                        ? newUserForm.role_title
+                        : newUserForm.role_title === ''
+                        ? ''
+                        : 'Custom'
+                    }
+                    onChange={(e) => handleDesignationChange(e.target.value)}
+                  >
+                    <option value="">-- Select Designation --</option>
+                    <option value="Cook">Cook (Kitchen Prep)</option>
+                    <option value="Cashier">Cashier (POS Checkout)</option>
+                    <option value="Helper">Helper (Shift Clock-in only)</option>
+                    <option value="Tea Boy">Tea Boy (Shift Clock-in only)</option>
+                    <option value="Custom">Custom Role Title...</option>
+                  </select>
+                </div>
+              )}
+
+              {newUserForm.role === 'STAFF' && !['Cook', 'Cashier', 'Helper', 'Tea Boy'].includes(newUserForm.role_title) && (
+                <div className="form-group">
+                  <label className="form-label" htmlFor="user-custom-designation-input">Custom Designation Title</label>
+                  <input
+                    id="user-custom-designation-input"
+                    type="text"
+                    className="input-control"
+                    value={newUserForm.role_title}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, role_title: e.target.value })}
+                    placeholder="e.g. Barista"
+                    required
+                  />
+                </div>
+              )}
+
+              {(user?.role === 'OWNER' || user?.role === 'ADMIN') && (
+                <>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="user-business-select">Assign Business Brand</label>
+                    <select
+                      id="user-business-select"
+                      className="input-control"
+                      value={newUserForm.business_id}
+                      onChange={(e) => {
+                        const newBizId = e.target.value;
+                        setNewUserForm(prev => ({
+                          ...prev,
+                          business_id: newBizId,
+                          branch_id: '' // reset branch when business changes
+                        }));
+                      }}
+                      required
+                    >
+                      <option value="">-- Choose Business Brand --</option>
+                      {businesses.map((biz) => (
+                        <option key={biz.id} value={biz.id}>{biz.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="user-branch-select">Assign Branch Location</label>
+                    <select
+                      id="user-branch-select"
+                      className="input-control"
+                      value={newUserForm.branch_id}
+                      onChange={(e) => setNewUserForm(prev => ({ ...prev, branch_id: e.target.value }))}
+                      required
+                      disabled={!newUserForm.business_id}
+                    >
+                      <option value="">-- Choose Branch Location --</option>
+                      {branches
+                        .filter((b) => b.business_id === newUserForm.business_id)
+                        .map((b) => (
+                          <option key={b.id} value={b.id}>{b.name}</option>
+                        ))
+                      }
+                    </select>
+                  </div>
+                </>
+              )}
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="user-temp-password-input">Temporary Password</label>
+                <input
+                  id="user-temp-password-input"
+                  type="text"
+                  className="input-control"
+                  value={newUserForm.password}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
+                  placeholder="Minimum 6 characters"
+                  required
+                />
+              </div>
+
+              {newUserForm.role === 'STAFF' && (
+                <div style={{ marginTop: '10px' }}>
+                  <h4 style={{ marginBottom: '10px', fontSize: '14px' }}>Operational Permissions</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                      <input
+                        id="perm-menu"
+                        type="checkbox"
+                        checked={newUserForm.can_manage_menu}
+                        onChange={(e) => setNewUserForm({ ...newUserForm, can_manage_menu: e.target.checked })}
+                        style={{ marginTop: '4px' }}
+                      />
+                      <div>
+                        <label htmlFor="perm-menu" style={{ fontWeight: 'bold', fontSize: '13px' }}>Menu Setup</label>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Configure catalog items & pricing</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                      <input
+                        id="perm-prep"
+                        type="checkbox"
+                        checked={newUserForm.can_prepare_food}
+                        onChange={(e) => setNewUserForm({ ...newUserForm, can_prepare_food: e.target.checked })}
+                        style={{ marginTop: '4px' }}
+                      />
+                      <div>
+                        <label htmlFor="perm-prep" style={{ fontWeight: 'bold', fontSize: '13px' }}>Kitchen Queue</label>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Accept orders & progress preparing queue</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                      <input
+                        id="perm-delivery"
+                        type="checkbox"
+                        checked={newUserForm.can_manage_delivery}
+                        onChange={(e) => setNewUserForm({ ...newUserForm, can_manage_delivery: e.target.checked })}
+                        style={{ marginTop: '4px' }}
+                      />
+                      <div>
+                        <label htmlFor="perm-delivery" style={{ fontWeight: 'bold', fontSize: '13px' }}>Delivery Dispatch</label>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Manage order assignments & driver routes</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                      <input
+                        id="perm-pos"
+                        type="checkbox"
+                        checked={newUserForm.can_process_billing}
+                        onChange={(e) => setNewUserForm({ ...newUserForm, can_process_billing: e.target.checked })}
+                        style={{ marginTop: '4px' }}
+                      />
+                      <div>
+                        <label htmlFor="perm-pos" style={{ fontWeight: 'bold', fontSize: '13px' }}>Order Billing / POS</label>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Punch custom bills and checkout order payments</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                      <input
+                        id="perm-reports"
+                        type="checkbox"
+                        checked={newUserForm.can_view_reports}
+                        onChange={(e) => setNewUserForm({ ...newUserForm, can_view_reports: e.target.checked })}
+                        style={{ marginTop: '4px' }}
+                      />
+                      <div>
+                        <label htmlFor="perm-reports" style={{ fontWeight: 'bold', fontSize: '13px' }}>Reports & Analytics</label>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>View sales figures & operational feedback logs</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                      <input
+                        id="perm-inventory"
+                        type="checkbox"
+                        checked={newUserForm.can_manage_inventory}
+                        onChange={(e) => setNewUserForm({ ...newUserForm, can_manage_inventory: e.target.checked })}
+                        style={{ marginTop: '4px' }}
+                      />
+                      <div>
+                        <label htmlFor="perm-inventory" style={{ fontWeight: 'bold', fontSize: '13px' }}>Inventory Setup</label>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Create ingredients & adjust stock audit quantities</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                      <input
+                        id="perm-recipes"
+                        type="checkbox"
+                        checked={newUserForm.can_manage_recipes}
+                        onChange={(e) => setNewUserForm({ ...newUserForm, can_manage_recipes: e.target.checked })}
+                        style={{ marginTop: '4px' }}
+                      />
+                      <div>
+                        <label htmlFor="perm-recipes" style={{ fontWeight: 'bold', fontSize: '13px' }}>Recipe Association</label>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Link menu items to ingredient usage deductions</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                      <input
+                        id="perm-shifts"
+                        type="checkbox"
+                        checked={newUserForm.can_manage_shifts}
+                        onChange={(e) => setNewUserForm({ ...newUserForm, can_manage_shifts: e.target.checked })}
+                        style={{ marginTop: '4px' }}
+                      />
+                      <div>
+                        <label htmlFor="perm-shifts" style={{ fontWeight: 'bold', fontSize: '13px' }}>Staff Schedules</label>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Schedule shifts & view staff worked hour timesheets</div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                      <input
+                        id="perm-clock"
+                        type="checkbox"
+                        checked={newUserForm.can_clock_in_out}
+                        onChange={(e) => setNewUserForm({ ...newUserForm, can_clock_in_out: e.target.checked })}
+                        style={{ marginTop: '4px' }}
+                      />
+                      <div>
+                        <label htmlFor="perm-clock" style={{ fontWeight: 'bold', fontSize: '13px' }}>Shift Clock In/Out</label>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Allow punching shift attendance timer</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <button type="submit" className="btn btn-primary" style={{ marginTop: '10px' }}>
+                Create User Account
               </button>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* 7. DUAL SPLIT BUSINESS & BRANCH ADMIN SETUP */}
+      {activeTab === 'branches' && (user?.role === 'OWNER' || user?.role === 'ADMIN') && (
+        <div className="grid-cols-2" style={{ alignItems: 'flex-start' }}>
+          
+          {/* Left Section: Business Brands */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div className="card">
+              <h3>Business Brands</h3>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                Create and manage the parent business brand entities.
+              </p>
+              <div className="table-container">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Brand Name</th>
+                      <th>Created At</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {businesses.map((b) => (
+                      <tr key={b.id}>
+                        <td><strong>{b.name}</strong></td>
+                        <td>{new Date(b.created_at).toLocaleDateString()}</td>
+                      </tr>
+                    ))}
+                    {businesses.length === 0 && (
+                      <tr>
+                        <td colSpan={2} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>
+                          No business brands defined yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="card">
+              <h3>Add Business Brand</h3>
+              <form onSubmit={handleBusinessBrandSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="brand-name-input">Brand Name</label>
+                  <input
+                    id="brand-name-input"
+                    type="text"
+                    className="input-control"
+                    value={businessesBrandForm.name}
+                    onChange={(e) => setBusinessesBrandForm({ name: e.target.value })}
+                    placeholder="e.g. Chaat 2.0"
+                    required
+                  />
+                </div>
+                <button type="submit" className="btn btn-primary" style={{ marginTop: '8px' }}>
+                  Create Brand
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {/* Right Section: Branch Locations */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div className="card">
+              <h3>Branch Locations</h3>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                Physical branch outlets mapped to parent brands.
+              </p>
+              <div className="table-container">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Branch</th>
+                      <th>Parent Brand</th>
+                      <th>Location Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {branches.map((b) => {
+                      const parentBiz = businesses.find((biz) => biz.id === b.business_id);
+                      return (
+                        <tr key={b.id}>
+                          <td><strong>{b.name}</strong></td>
+                          <td>{parentBiz?.name || <span style={{ color: 'var(--text-muted)' }}>None</span>}</td>
+                          <td>
+                            <div>{b.location || <span style={{ color: 'var(--text-muted)' }}>No location</span>}</div>
+                            {b.mobile_no && <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{b.mobile_no}</div>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {branches.length === 0 && (
+                      <tr>
+                        <td colSpan={3} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>
+                          No branches defined yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="card">
+              <h3>Add Branch Location</h3>
+              <form onSubmit={handleBranchLocationSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="location-brand-select">Parent Brand</label>
+                  <select
+                    id="location-brand-select"
+                    className="input-control"
+                    value={branchLocationForm.business_id}
+                    onChange={(e) => setBranchLocationForm({ ...branchLocationForm, business_id: e.target.value })}
+                    required
+                  >
+                    <option value="">-- Select Parent Brand --</option>
+                    {businesses.map((biz) => (
+                      <option key={biz.id} value={biz.id}>{biz.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="location-name-input">Branch Name</label>
+                  <input
+                    id="location-name-input"
+                    type="text"
+                    className="input-control"
+                    value={branchLocationForm.name}
+                    onChange={(e) => setBranchLocationForm({ ...branchLocationForm, name: e.target.value })}
+                    placeholder="e.g. Velachery"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="location-address-input">Location Address</label>
+                  <input
+                    id="location-address-input"
+                    type="text"
+                    className="input-control"
+                    value={branchLocationForm.location}
+                    onChange={(e) => setBranchLocationForm({ ...branchLocationForm, location: e.target.value })}
+                    placeholder="e.g. 123 Main Road, Chennai"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="location-phone-input">Mobile No</label>
+                  <input
+                    id="location-phone-input"
+                    type="text"
+                    className="input-control"
+                    value={branchLocationForm.mobile_no}
+                    onChange={(e) => setBranchLocationForm({ ...branchLocationForm, mobile_no: e.target.value })}
+                    placeholder="e.g. +91 98765 43210"
+                  />
+                </div>
+                <button type="submit" className="btn btn-primary" style={{ marginTop: '8px' }}>
+                  Create Branch
+                </button>
+              </form>
+            </div>
+          </div>
+
         </div>
       )}
 

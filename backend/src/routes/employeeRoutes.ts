@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   getEmployeesList,
+  createEmployee,
   getShifts,
   createShift,
   updateShift,
@@ -16,9 +17,10 @@ const router = Router();
 router.use(authenticate);
 
 // Employees list and shifts
-router.get('/list', authorizeRole(['ADMIN', 'MANAGER']), getEmployeesList);
+router.get('/list', authorizeRole(['OWNER', 'ADMIN', 'MANAGER']), getEmployeesList);
+router.post('/create', authorizeRole(['OWNER', 'ADMIN', 'MANAGER']), createEmployee);
 router.get('/shifts', getShifts);
-router.post('/shifts', authorizeRole(['ADMIN', 'MANAGER']), createShift);
+router.post('/shifts', authorizeRole(['OWNER', 'ADMIN', 'MANAGER']), createShift);
 router.put('/shifts/:id', updateShift);
 
 // Clock in / out & timesheets
@@ -27,3 +29,4 @@ router.post('/timesheet/clock-out', clockOut);
 router.get('/timesheets', getTimesheets);
 
 export default router;
+

@@ -1,28 +1,33 @@
 import { Request, Response } from 'express';
 import prisma from '../db/prisma';
 import { ShiftStatus } from '@prisma/client';
-import { BRANCH_RESTRICTED_ROLES } from '../middleware/authMiddleware';
+import { BUSINESS_RESTRICTED_ROLES } from '../middleware/authMiddleware';
 import { logAudit } from '../utils/auditLogger';
+import bcrypt from 'bcrypt';
 
-// 1. Fetch employee users list (users that are staff)
+// 1. Fetch employee users list (users that are staff/managers)
 export const getEmployeesList = async (req: Request, res: Response) => {
   try {
     // @ts-ignore
-    const { role, branchId: userBranchId } = req.user;
-    const { branchId: queryBranchId } = req.query;
+    const { role, businessId: userBusinessId, branchId: userBranchId } = req.user;
+    const { businessId: queryBusinessId, branchId: queryBranchId } = req.query;
 
     const where: any = {
       role: {
-        in: ['ADMIN', 'MANAGER', 'KITCHEN_STAFF', 'DELIVERY', 'OWNER', 'BILLER', 'HELPER', 'COOK', 'SHOP_CAPTAIN'],
+        in: ['ADMIN', 'MANAGER', 'STAFF', 'OWNER'],
       },
     };
 
-    if (BRANCH_RESTRICTED_ROLES.includes(role)) {
+    if (role === 'MANAGER' || role === 'STAFF') {
       if (userBranchId) {
         where.branch_id = userBranchId;
       }
-    } else if (queryBranchId && typeof queryBranchId === 'string' && queryBranchId !== '') {
-      where.branch_id = queryBranchId;
+    } else {
+      if (queryBranchId && typeof queryBranchId === 'string' && queryBranchId !== '') {
+        where.branch_id = queryBranchId;
+      } else if (queryBusinessId && typeof queryBusinessId === 'string' && queryBusinessId !== '') {
+        where.business_id = queryBusinessId;
+      }
     }
 
     const staff = await prisma.user.findMany({
@@ -31,8 +36,20 @@ export const getEmployeesList = async (req: Request, res: Response) => {
         id: true,
         name: true,
         email: true,
+        mobile_no: true,
         role: true,
+        role_title: true,
+        business_id: true,
         branch_id: true,
+        can_manage_menu: true,
+        can_prepare_food: true,
+        can_manage_delivery: true,
+        can_process_billing: true,
+        can_view_reports: true,
+        can_manage_inventory: true,
+        can_manage_recipes: true,
+        can_manage_shifts: true,
+        can_clock_in_out: true,
       },
       orderBy: { name: 'asc' },
     });
@@ -43,12 +60,96 @@ export const getEmployeesList = async (req: Request, res: Response) => {
   }
 };
 
-// 2. Shift Management
+// 2. Create employee account (restricted to OWNER, ADMIN, or MANAGER)
+export const createEmployee = async (req: Request, res: Response) => {
+  try {
+    // @ts-ignore
+    const { role: actorRole, businessId: actorBusinessId, branchId: actorBranchId, id: actorId } = req.user;
+    const { name, email, mobile_no, role, role_title, password, business_id, branch_id, ...permissions } = req.body;
+
+    if (!name || !email || !mobile_no || !role || !password) {
+      return res.status(400).json({ error: 'Name, email, mobile, role, and temporary password are required' });
+    }
+
+    // Role-based constraints
+    let finalBusinessId = business_id;
+    let finalBranchId = branch_id;
+
+    if (actorRole === 'MANAGER') {
+      // Managers can only create STAFF (not OWNER/ADMIN/MANAGER) for their own branch/business
+      if (role !== 'STAFF') {
+        return res.status(403).json({ error: 'Managers can only create employee accounts' });
+      }
+      finalBusinessId = actorBusinessId;
+      finalBranchId = actorBranchId;
+    } else if (actorRole !== 'OWNER' && actorRole !== 'ADMIN') {
+      return res.status(403).json({ error: 'Forbidden: Insufficient privileges' });
+    }
+
+    if (!finalBusinessId || !finalBranchId) {
+      return res.status(400).json({ error: 'Assigned business and branch are required' });
+    }
+
+    // Check unique constraints
+    const existingEmail = await prisma.user.findUnique({ where: { email } });
+    if (existingEmail) {
+      return res.status(400).json({ error: 'Email already in use' });
+    }
+
+    const existingPhone = await prisma.user.findUnique({ where: { mobile_no } });
+    if (existingPhone) {
+      return res.status(400).json({ error: 'Phone number already in use' });
+    }
+
+    const password_hash = await bcrypt.hash(password, 10);
+
+    const newEmployee = await prisma.user.create({
+      data: {
+        name,
+        email,
+        mobile_no,
+        role,
+        role_title: role_title || 'Staff',
+        password_hash,
+        business_id: finalBusinessId,
+        branch_id: finalBranchId,
+        must_change_password: true, // Force change password on first login
+        can_manage_menu: permissions.can_manage_menu === true,
+        can_prepare_food: permissions.can_prepare_food === true,
+        can_manage_delivery: permissions.can_manage_delivery === true,
+        can_process_billing: permissions.can_process_billing === true,
+        can_view_reports: permissions.can_view_reports === true,
+        can_manage_inventory: permissions.can_manage_inventory === true,
+        can_manage_recipes: permissions.can_manage_recipes === true,
+        can_manage_shifts: permissions.can_manage_shifts === true,
+        can_clock_in_out: permissions.can_clock_in_out !== false, // Defaults to true
+      },
+    });
+
+    const actor = await prisma.user.findUnique({ where: { id: actorId } });
+    await logAudit(actorId, actor?.name, 'EMPLOYEE_CREATED', `Created employee ${newEmployee.name} with title ${role_title || role}`, finalBusinessId);
+
+    res.status(201).json({
+      id: newEmployee.id,
+      name: newEmployee.name,
+      email: newEmployee.email,
+      role: newEmployee.role,
+      role_title: newEmployee.role_title,
+      business_id: newEmployee.business_id,
+      branch_id: newEmployee.branch_id,
+    });
+  } catch (error) {
+    console.error('Error creating employee:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// 3. Shift Management
 export const getShifts = async (req: Request, res: Response) => {
   try {
     // @ts-ignore
-    const { id: userId, role, branchId: userBranchId } = req.user;
-    const { branchId: queryBranchId } = req.query;
+    const { id: userId, role, businessId: userBusinessId, branchId: userBranchId } = req.user;
+    const { businessId: queryBusinessId, branchId: queryBranchId } = req.query;
 
     let shifts;
     if (role === 'ADMIN' || role === 'MANAGER' || role === 'OWNER') {
@@ -59,6 +160,8 @@ export const getShifts = async (req: Request, res: Response) => {
         }
       } else if (queryBranchId && typeof queryBranchId === 'string' && queryBranchId !== '') {
         where.user = { branch_id: queryBranchId };
+      } else if (queryBusinessId && typeof queryBusinessId === 'string' && queryBusinessId !== '') {
+        where.user = { business_id: queryBusinessId };
       }
 
       shifts = await prisma.shift.findMany({
@@ -85,7 +188,7 @@ export const createShift = async (req: Request, res: Response) => {
   try {
     const { user_id, start_time, end_time } = req.body;
     // @ts-ignore
-    const { role, id: activeUserId, branchId: userBranchId } = req.user;
+    const { role, id: activeUserId, businessId: userBusinessId, branchId: userBranchId } = req.user;
 
     if (!user_id || !start_time || !end_time) {
       return res.status(400).json({ error: 'user_id, start_time, and end_time are required' });
@@ -111,7 +214,7 @@ export const createShift = async (req: Request, res: Response) => {
     });
 
     const actor = await prisma.user.findUnique({ where: { id: activeUserId } });
-    await logAudit(actor?.id, actor?.name, 'SHIFT_CREATED', `Created shift for ${shift.user.name}: ${shift.start_time.toISOString()} - ${shift.end_time.toISOString()}`, shift.user.branch_id);
+    await logAudit(actor?.id, actor?.name, 'SHIFT_CREATED', `Created shift for ${shift.user.name}: ${shift.start_time.toISOString()} - ${shift.end_time.toISOString()}`, shift.user.business_id);
 
     res.status(201).json(shift);
   } catch (error) {
@@ -125,7 +228,7 @@ export const updateShift = async (req: Request, res: Response) => {
     const id = req.params.id as string;
     const { start_time, end_time, status } = req.body;
     // @ts-ignore
-    const { id: userId, role, branchId: userBranchId } = req.user;
+    const { id: userId, role, businessId: userBusinessId, branchId: userBranchId } = req.user;
 
     const shift = await prisma.shift.findUnique({
       where: { id },
@@ -157,7 +260,6 @@ export const updateShift = async (req: Request, res: Response) => {
       if (role === 'ADMIN' || role === 'MANAGER' || role === 'OWNER') {
         updateData.status = status;
       } else {
-        // Normal employee can only request swap or complete if authorized
         if (shift.user_id !== userId) {
           return res.status(403).json({ error: 'Forbidden' });
         }
@@ -176,7 +278,7 @@ export const updateShift = async (req: Request, res: Response) => {
     });
 
     const actor = await prisma.user.findUnique({ where: { id: userId } });
-    await logAudit(actor?.id, actor?.name, 'SHIFT_UPDATED', `Updated shift status/times for ${updatedShift.user.name} to ${status || 'modified times'}`, updatedShift.user.branch_id);
+    await logAudit(actor?.id, actor?.name, 'SHIFT_UPDATED', `Updated shift status/times for ${updatedShift.user.name} to ${status || 'modified times'}`, updatedShift.user.business_id);
 
     res.json(updatedShift);
   } catch (error) {
@@ -185,7 +287,7 @@ export const updateShift = async (req: Request, res: Response) => {
   }
 };
 
-// 3. Timesheet management (Clock In / Clock Out)
+// 4. Timesheet management (Clock In / Clock Out)
 export const clockIn = async (req: Request, res: Response) => {
   try {
     // @ts-ignore
@@ -211,7 +313,7 @@ export const clockIn = async (req: Request, res: Response) => {
       include: { user: true }
     });
 
-    await logAudit(timesheet.user.id, timesheet.user.name, 'CLOCK_IN', `Employee clocked in`, timesheet.user.branch_id);
+    await logAudit(timesheet.user.id, timesheet.user.name, 'CLOCK_IN', `Employee clocked in`, timesheet.user.business_id);
 
     res.status(201).json(timesheet);
   } catch (error) {
@@ -250,7 +352,7 @@ export const clockOut = async (req: Request, res: Response) => {
       include: { user: true }
     });
 
-    await logAudit(timesheet.user.id, timesheet.user.name, 'CLOCK_OUT', `Employee clocked out. Hours worked: ${hours}`, timesheet.user.branch_id);
+    await logAudit(timesheet.user.id, timesheet.user.name, 'CLOCK_OUT', `Employee clocked out. Hours worked: ${hours}`, timesheet.user.business_id);
 
     res.json(timesheet);
   } catch (error) {
@@ -262,8 +364,8 @@ export const clockOut = async (req: Request, res: Response) => {
 export const getTimesheets = async (req: Request, res: Response) => {
   try {
     // @ts-ignore
-    const { id: userId, role, branchId: userBranchId } = req.user;
-    const { branchId: queryBranchId } = req.query;
+    const { id: userId, role, businessId: userBusinessId, branchId: userBranchId } = req.user;
+    const { businessId: queryBusinessId, branchId: queryBranchId } = req.query;
 
     let timesheets;
     if (role === 'ADMIN' || role === 'MANAGER' || role === 'OWNER') {
@@ -274,6 +376,8 @@ export const getTimesheets = async (req: Request, res: Response) => {
         }
       } else if (queryBranchId && typeof queryBranchId === 'string' && queryBranchId !== '') {
         where.user = { branch_id: queryBranchId };
+      } else if (queryBusinessId && typeof queryBusinessId === 'string' && queryBusinessId !== '') {
+        where.user = { business_id: queryBusinessId };
       }
 
       timesheets = await prisma.timesheet.findMany({

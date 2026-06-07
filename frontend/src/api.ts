@@ -60,6 +60,7 @@ export const api = {
   getProfile: () => request('/auth/profile'),
   forgotPassword: (phone: string) => request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ phone }) }),
   resetPassword: (token: string, newPassword: string) => request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, newPassword }) }),
+  changePassword: (newPassword: string) => request('/auth/change-password', { method: 'POST', body: JSON.stringify({ newPassword }) }),
 
   // Menu
   getMenuItems: (branchId?: string) => request(branchId ? `/menu?branchId=${branchId}` : '/menu'),
@@ -76,8 +77,10 @@ export const api = {
   getBusinessSettings: () => request('/business'),
   updateBusinessSettings: (data: any) => request('/business', { method: 'PUT', body: JSON.stringify(data) }),
 
-  // Branches
-  getBranches: () => request('/branches'),
+  // Businesses & Branches
+  getBusinesses: () => request('/branches/businesses'),
+  createBusiness: (data: any) => request('/branches/businesses', { method: 'POST', body: JSON.stringify(data) }),
+  getBranches: (businessId?: string) => request(businessId ? `/branches?businessId=${businessId}` : '/branches'),
   createBranch: (data: any) => request('/branches', { method: 'POST', body: JSON.stringify(data) }),
 
   // Orders
@@ -104,7 +107,8 @@ export const api = {
   saveRecipe: (data: any) => request('/inventory/recipes', { method: 'POST', body: JSON.stringify(data) }),
 
   // Employees
-  getEmployeesList: () => request('/employees/list'),
+  getEmployeesList: (branchId?: string) => request(branchId ? `/employees/list?branchId=${branchId}` : '/employees/list'),
+  createEmployee: (data: any) => request('/employees/create', { method: 'POST', body: JSON.stringify(data) }),
   getShifts: () => request('/employees/shifts'),
   createShift: (data: any) => request('/employees/shifts', { method: 'POST', body: JSON.stringify(data) }),
   updateShift: (id: string, data: any) => request(`/employees/shifts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),

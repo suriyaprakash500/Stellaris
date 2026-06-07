@@ -32,7 +32,7 @@ const validateAndGetCategory = async (categoryName: string, userId: string): Pro
     });
     // Log audit
     const actor = await prisma.user.findUnique({ where: { id: userId } });
-    await logAudit(userId, actor?.name || 'Unknown', 'CATEGORY_CREATED', `Created category "${created.name}" automatically on menu item save`, actor?.branch_id);
+    await logAudit(userId, actor?.name || 'Unknown', 'CATEGORY_CREATED', `Created category "${created.name}" automatically on menu item save`, actor?.business_id);
     return created.name;
   }
   return existing.name;
@@ -40,10 +40,19 @@ const validateAndGetCategory = async (categoryName: string, userId: string): Pro
 
 export const getMenuItems = async (req: Request, res: Response) => {
   try {
-    const { branchId } = req.query;
+    const { branchId, businessId } = req.query;
     const where: any = {};
+    
+    let targetBusinessId = businessId;
     if (branchId && typeof branchId === 'string' && branchId !== '') {
-      where.branch_id = branchId;
+      const branch = await prisma.branch.findUnique({ where: { id: branchId } });
+      if (branch) {
+        targetBusinessId = branch.business_id;
+      }
+    }
+
+    if (targetBusinessId && typeof targetBusinessId === 'string' && targetBusinessId !== '') {
+      where.business_id = targetBusinessId;
     }
 
     const items = await prisma.menuItem.findMany({
@@ -63,11 +72,11 @@ export const createMenuItem = async (req: Request, res: Response) => {
     // @ts-ignore
     const userRole = req.user.role;
     // @ts-ignore
-    const userBranchId = req.user.branchId;
+    const userBusinessId = req.user.businessId;
     // @ts-ignore
     const userId = req.user.id;
 
-    const branch_id = userRole === 'OWNER' || userRole === 'ADMIN' ? req.body.branch_id : userBranchId;
+    const business_id = userRole === 'OWNER' || userRole === 'ADMIN' ? (req.body.business_id || req.body.branch_id) : userBusinessId;
 
     if (!name || price === undefined || !category) {
       return res.status(400).json({ error: 'Name, price, and category are required' });
@@ -88,7 +97,7 @@ export const createMenuItem = async (req: Request, res: Response) => {
         image_url,
         category: finalCategory,
         is_available: is_available !== undefined ? is_available : true,
-        branch_id: branch_id || null,
+        business_id: business_id || null,
       },
     });
 
@@ -106,7 +115,7 @@ export const updateMenuItem = async (req: Request, res: Response) => {
     // @ts-ignore
     const userRole = req.user.role;
     // @ts-ignore
-    const userBranchId = req.user.branchId;
+    const userBusinessId = req.user.businessId;
     // @ts-ignore
     const userId = req.user.id;
 
@@ -115,11 +124,11 @@ export const updateMenuItem = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Menu item not found' });
     }
 
-    if (userRole !== 'OWNER' && userRole !== 'ADMIN' && existingItem.branch_id !== userBranchId) {
-      return res.status(403).json({ error: 'Forbidden: You cannot modify items of another branch' });
+    if (userRole !== 'OWNER' && userRole !== 'ADMIN' && existingItem.business_id !== userBusinessId) {
+      return res.status(403).json({ error: 'Forbidden: You cannot modify items of another business' });
     }
 
-    const branch_id = userRole === 'OWNER' || userRole === 'ADMIN' ? req.body.branch_id : undefined;
+    const business_id = userRole === 'OWNER' || userRole === 'ADMIN' ? (req.body.business_id || req.body.branch_id) : undefined;
 
     let finalCategory: string | undefined;
     if (category) {
@@ -139,7 +148,7 @@ export const updateMenuItem = async (req: Request, res: Response) => {
         image_url,
         category: finalCategory,
         is_available: is_available !== undefined ? is_available : undefined,
-        branch_id: branch_id !== undefined ? (branch_id || null) : undefined,
+        business_id: business_id !== undefined ? (business_id || null) : undefined,
       },
     });
 
@@ -156,15 +165,15 @@ export const deleteMenuItem = async (req: Request, res: Response) => {
     // @ts-ignore
     const userRole = req.user.role;
     // @ts-ignore
-    const userBranchId = req.user.branchId;
+    const userBusinessId = req.user.businessId;
 
     const existingItem = await prisma.menuItem.findUnique({ where: { id } });
     if (!existingItem) {
       return res.status(404).json({ error: 'Menu item not found' });
     }
 
-    if (userRole !== 'OWNER' && userRole !== 'ADMIN' && existingItem.branch_id !== userBranchId) {
-      return res.status(403).json({ error: 'Forbidden: You cannot delete items of another branch' });
+    if (userRole !== 'OWNER' && userRole !== 'ADMIN' && existingItem.business_id !== userBusinessId) {
+      return res.status(403).json({ error: 'Forbidden: You cannot delete items of another business' });
     }
 
     await prisma.menuItem.delete({ where: { id } });

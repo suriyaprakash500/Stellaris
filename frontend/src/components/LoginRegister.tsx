@@ -41,7 +41,7 @@ export const LoginRegister: React.FC = () => {
     setSubmitting(true);
     try {
       if (view === 'register') {
-        await register(email, mobileNo, password, name, role);
+        await register(email, mobileNo, password, name);
       } else {
         await login(email, password);
       }
@@ -207,29 +207,7 @@ export const LoginRegister: React.FC = () => {
               />
             </div>
 
-            {view === 'register' && (
-              <div className="form-group">
-                <label className="form-label" htmlFor="role-select">Select System Role (for testing)</label>
-                <select
-                  id="role-select"
-                  className="input-control"
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  required
-                >
-                  <option value="CUSTOMER">Customer</option>
-                  <option value="OWNER">Owner</option>
-                  <option value="ADMIN">CEO / System Admin</option>
-                  <option value="MANAGER">Manager</option>
-                  <option value="SHOP_CAPTAIN">Shop Captain</option>
-                  <option value="BILLER">Biller</option>
-                  <option value="COOK">Cook</option>
-                  <option value="HELPER">Helper</option>
-                  <option value="KITCHEN_STAFF">Kitchen Staff (Legacy)</option>
-                  <option value="DELIVERY">Delivery Rider (Legacy)</option>
-                </select>
-              </div>
-            )}
+
 
             <button
               id="auth-submit-btn"

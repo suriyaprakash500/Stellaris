@@ -1,21 +1,25 @@
 import { Request, Response } from 'express';
 import prisma from '../db/prisma';
-import { BRANCH_RESTRICTED_ROLES } from '../middleware/authMiddleware';
+import { BUSINESS_RESTRICTED_ROLES } from '../middleware/authMiddleware';
 
 // 1. Sales Report
 export const getSalesReport = async (req: Request, res: Response) => {
   try {
     // @ts-ignore
-    const { role, branchId: userBranchId } = req.user;
-    const { branchId: queryBranchId } = req.query;
+    const { role, businessId: userBusinessId, branchId: userBranchId } = req.user;
+    const { businessId: queryBusinessId, branchId: queryBranchId } = req.query;
 
     const where: any = { status: 'DELIVERED' };
-    if (BRANCH_RESTRICTED_ROLES.includes(role)) {
+    if (role === 'MANAGER' || role === 'STAFF') {
       if (userBranchId) {
         where.branch_id = userBranchId;
       }
-    } else if (queryBranchId && typeof queryBranchId === 'string' && queryBranchId !== '') {
-      where.branch_id = queryBranchId;
+    } else {
+      if (queryBranchId && typeof queryBranchId === 'string' && queryBranchId !== '') {
+        where.branch_id = queryBranchId;
+      } else if (queryBusinessId && typeof queryBusinessId === 'string' && queryBusinessId !== '') {
+        where.business_id = queryBusinessId;
+      }
     }
 
     // 1a. Total Revenue and completed order count
@@ -81,20 +85,25 @@ export const getSalesReport = async (req: Request, res: Response) => {
 export const getInventoryReport = async (req: Request, res: Response) => {
   try {
     // @ts-ignore
-    const { role, branchId: userBranchId } = req.user;
-    const { branchId: queryBranchId } = req.query;
+    const { role, businessId: userBusinessId, branchId: userBranchId } = req.user;
+    const { businessId: queryBusinessId, branchId: queryBranchId } = req.query;
 
     const ingredientWhere: any = {};
     const wastageWhere: any = { type: 'WASTE' };
 
-    if (BRANCH_RESTRICTED_ROLES.includes(role)) {
+    if (role === 'MANAGER' || role === 'STAFF') {
       if (userBranchId) {
         ingredientWhere.branch_id = userBranchId;
         wastageWhere.ingredient = { branch_id: userBranchId };
       }
-    } else if (queryBranchId && typeof queryBranchId === 'string' && queryBranchId !== '') {
-      ingredientWhere.branch_id = queryBranchId;
-      wastageWhere.ingredient = { branch_id: queryBranchId };
+    } else {
+      if (queryBranchId && typeof queryBranchId === 'string' && queryBranchId !== '') {
+        ingredientWhere.branch_id = queryBranchId;
+        wastageWhere.ingredient = { branch_id: queryBranchId };
+      } else if (queryBusinessId && typeof queryBusinessId === 'string' && queryBusinessId !== '') {
+        ingredientWhere.business_id = queryBusinessId;
+        wastageWhere.ingredient = { business_id: queryBusinessId };
+      }
     }
 
     // Low stock warnings list
@@ -144,17 +153,21 @@ export const getInventoryReport = async (req: Request, res: Response) => {
 export const getEmployeePerformanceReport = async (req: Request, res: Response) => {
   try {
     // @ts-ignore
-    const { role, branchId: userBranchId } = req.user;
-    const { branchId: queryBranchId } = req.query;
+    const { role, businessId: userBusinessId, branchId: userBranchId } = req.user;
+    const { businessId: queryBusinessId, branchId: queryBranchId } = req.query;
 
     const timesheetWhere: any = {};
 
-    if (BRANCH_RESTRICTED_ROLES.includes(role)) {
+    if (role === 'MANAGER' || role === 'STAFF') {
       if (userBranchId) {
         timesheetWhere.user = { branch_id: userBranchId };
       }
-    } else if (queryBranchId && typeof queryBranchId === 'string' && queryBranchId !== '') {
-      timesheetWhere.user = { branch_id: queryBranchId };
+    } else {
+      if (queryBranchId && typeof queryBranchId === 'string' && queryBranchId !== '') {
+        timesheetWhere.user = { branch_id: queryBranchId };
+      } else if (queryBusinessId && typeof queryBusinessId === 'string' && queryBusinessId !== '') {
+        timesheetWhere.user = { business_id: queryBusinessId };
+      }
     }
 
     const timesheets = await prisma.timesheet.findMany({
@@ -197,10 +210,21 @@ export const getEmployeePerformanceReport = async (req: Request, res: Response) 
 // 4. Order Timing Report
 export const getOrderTimingReport = async (req: Request, res: Response) => {
   try {
-    const { branchId: queryBranchId } = req.query;
+    // @ts-ignore
+    const { role, businessId: userBusinessId, branchId: userBranchId } = req.user;
+    const { businessId: queryBusinessId, branchId: queryBranchId } = req.query;
+
     const where: any = {};
-    if (queryBranchId && typeof queryBranchId === 'string' && queryBranchId !== '') {
-      where.branch_id = queryBranchId;
+    if (role === 'MANAGER' || role === 'STAFF') {
+      if (userBranchId) {
+        where.branch_id = userBranchId;
+      }
+    } else {
+      if (queryBranchId && typeof queryBranchId === 'string' && queryBranchId !== '') {
+        where.branch_id = queryBranchId;
+      } else if (queryBusinessId && typeof queryBusinessId === 'string' && queryBusinessId !== '') {
+        where.business_id = queryBusinessId;
+      }
     }
 
     const orders = await prisma.order.findMany({
@@ -267,7 +291,7 @@ export const getOrderTimingReport = async (req: Request, res: Response) => {
         id: order.id,
         status: order.status,
         customerName: order.user?.name || 'Guest',
-        branchName: order.branch?.name || 'Global',
+        branchName: order.branch?.name || 'Global', // map to UI key expected
         created_at: order.created_at,
         accepted_at: order.accepted_at,
         prep_started_at: order.prep_started_at,

@@ -14,7 +14,7 @@ export const logAudit = async (
         user_name: userName || null,
         action,
         details,
-        branch_id: branchId || null,
+        business_id: branchId || null,
       },
     });
   } catch (error) {

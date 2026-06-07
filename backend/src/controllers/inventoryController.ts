@@ -1,21 +1,25 @@
 import { Request, Response } from 'express';
 import prisma from '../db/prisma';
-import { BRANCH_RESTRICTED_ROLES } from '../middleware/authMiddleware';
+import { BUSINESS_RESTRICTED_ROLES } from '../middleware/authMiddleware';
 
 // 1. Ingredients CRUD & Stock Monitoring
 export const getIngredients = async (req: Request, res: Response) => {
   try {
     // @ts-ignore
-    const { role, branchId: userBranchId } = req.user;
-    const { branchId: queryBranchId } = req.query;
+    const { role, businessId: userBusinessId, branchId: userBranchId } = req.user;
+    const { businessId: queryBusinessId, branchId: queryBranchId } = req.query;
     const where: any = {};
 
-    if (BRANCH_RESTRICTED_ROLES.includes(role)) {
+    if (role === 'MANAGER' || role === 'STAFF') {
       if (userBranchId) {
         where.branch_id = userBranchId;
       }
-    } else if (queryBranchId && typeof queryBranchId === 'string' && queryBranchId !== '') {
-      where.branch_id = queryBranchId;
+    } else {
+      if (queryBranchId && typeof queryBranchId === 'string' && queryBranchId !== '') {
+        where.branch_id = queryBranchId;
+      } else if (queryBusinessId && typeof queryBusinessId === 'string' && queryBusinessId !== '') {
+        where.business_id = queryBusinessId;
+      }
     }
 
     const ingredients = await prisma.ingredient.findMany({
@@ -39,13 +43,31 @@ export const getIngredients = async (req: Request, res: Response) => {
 
 export const createIngredient = async (req: Request, res: Response) => {
   try {
-    const { name, current_stock, unit, min_stock_alert, vendor_id } = req.body;
+    const { name, current_stock, unit, min_stock_alert, vendor_id, branch_id } = req.body;
     // @ts-ignore
-    const { role, branchId: userBranchId } = req.user;
-    const branch_id = role === 'OWNER' || role === 'ADMIN' ? req.body.branch_id : userBranchId;
+    const { role: actorRole, businessId: actorBusinessId, branchId: actorBranchId } = req.user;
+
+    let finalBranchId = branch_id;
+    let finalBusinessId = undefined;
+
+    if (actorRole === 'MANAGER' || actorRole === 'STAFF') {
+      finalBranchId = actorBranchId;
+      finalBusinessId = actorBusinessId;
+    } else {
+      if (finalBranchId) {
+        const br = await prisma.branch.findUnique({ where: { id: finalBranchId } });
+        if (br) {
+          finalBusinessId = br.business_id;
+        }
+      }
+    }
 
     if (!name || current_stock === undefined || !unit || min_stock_alert === undefined) {
       return res.status(400).json({ error: 'Name, current_stock, unit, and min_stock_alert are required' });
+    }
+
+    if (!finalBranchId) {
+      return res.status(400).json({ error: 'Assigned branch is required' });
     }
 
     const ingredient = await prisma.ingredient.create({
@@ -55,7 +77,8 @@ export const createIngredient = async (req: Request, res: Response) => {
         unit,
         min_stock_alert: parseFloat(min_stock_alert),
         vendor_id,
-        branch_id: branch_id || null,
+        branch_id: finalBranchId,
+        business_id: finalBusinessId || null,
       },
     });
 
@@ -72,7 +95,7 @@ export const createIngredient = async (req: Request, res: Response) => {
 export const updateIngredient = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
-    const { name, current_stock, unit, min_stock_alert, vendor_id } = req.body;
+    const { name, current_stock, unit, min_stock_alert, vendor_id, branch_id } = req.body;
     // @ts-ignore
     const { role, branchId: userBranchId } = req.user;
 
@@ -85,7 +108,17 @@ export const updateIngredient = async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'Forbidden: You cannot modify ingredients of another branch' });
     }
 
-    const branch_id = role === 'OWNER' || role === 'ADMIN' ? req.body.branch_id : undefined;
+    let finalBranchId = undefined;
+    let finalBusinessId = undefined;
+    if (role === 'OWNER' || role === 'ADMIN') {
+      if (branch_id) {
+        finalBranchId = branch_id;
+        const br = await prisma.branch.findUnique({ where: { id: finalBranchId } });
+        if (br) {
+          finalBusinessId = br.business_id;
+        }
+      }
+    }
 
     const ingredient = await prisma.ingredient.update({
       where: { id },
@@ -95,7 +128,8 @@ export const updateIngredient = async (req: Request, res: Response) => {
         unit,
         min_stock_alert: min_stock_alert !== undefined ? parseFloat(min_stock_alert) : undefined,
         vendor_id,
-        branch_id: branch_id !== undefined ? (branch_id || null) : undefined,
+        branch_id: finalBranchId || undefined,
+        business_id: finalBusinessId || undefined,
       },
     });
 
@@ -134,7 +168,7 @@ export const adjustStock = async (req: Request, res: Response) => {
   try {
     // @ts-ignore
     const { id: userId, role, branchId: userBranchId } = req.user;
-    const { ingredient_id, quantity, type, reason } = req.body; // quantity can be positive (restock) or negative (waste/damage)
+    const { ingredient_id, quantity, type, reason } = req.body;
 
     if (!ingredient_id || quantity === undefined || !type) {
       return res.status(400).json({ error: 'ingredient_id, quantity, and type are required' });
@@ -151,7 +185,6 @@ export const adjustStock = async (req: Request, res: Response) => {
 
     const qtyVal = parseFloat(quantity);
 
-    // Make sure stock doesn't go below 0
     if (ingredient.current_stock + qtyVal < 0) {
       return res.status(400).json({ error: 'Adjustment would result in negative stock' });
     }
@@ -263,15 +296,15 @@ export const getRecipe = async (req: Request, res: Response) => {
   try {
     const menuItemId = req.params.menuItemId as string;
     // @ts-ignore
-    const { role, branchId: userBranchId } = req.user;
+    const { role, businessId: userBusinessId } = req.user;
 
     const menuItem = await prisma.menuItem.findUnique({ where: { id: menuItemId } });
     if (!menuItem) {
       return res.status(404).json({ error: 'Menu item not found' });
     }
 
-    if (role !== 'OWNER' && role !== 'ADMIN' && menuItem.branch_id !== userBranchId) {
-      return res.status(403).json({ error: 'Forbidden: You cannot view recipes of another branch' });
+    if (role !== 'OWNER' && role !== 'ADMIN' && menuItem.business_id !== userBusinessId) {
+      return res.status(403).json({ error: 'Forbidden: You cannot view recipes of another business' });
     }
 
     const recipe = await prisma.recipeIngredient.findMany({
@@ -287,9 +320,9 @@ export const getRecipe = async (req: Request, res: Response) => {
 
 export const saveRecipe = async (req: Request, res: Response) => {
   try {
-    const { menu_item_id, ingredients } = req.body; // ingredients is array of { ingredient_id, quantity }
+    const { menu_item_id, ingredients } = req.body;
     // @ts-ignore
-    const { role, branchId: userBranchId } = req.user;
+    const { role, businessId: userBusinessId } = req.user;
 
     if (!menu_item_id || !ingredients || !Array.isArray(ingredients)) {
       return res.status(400).json({ error: 'menu_item_id and ingredients array are required' });
@@ -300,18 +333,15 @@ export const saveRecipe = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Menu item not found' });
     }
 
-    if (role !== 'OWNER' && role !== 'ADMIN' && menuItem.branch_id !== userBranchId) {
-      return res.status(403).json({ error: 'Forbidden: You cannot modify recipes of another branch' });
+    if (role !== 'OWNER' && role !== 'ADMIN' && menuItem.business_id !== userBusinessId) {
+      return res.status(403).json({ error: 'Forbidden: You cannot modify recipes of another business' });
     }
 
-    // Save recipe inside transaction (delete existing, insert new)
     const result = await prisma.$transaction(async (tx) => {
-      // Clear current recipe details
       await tx.recipeIngredient.deleteMany({
         where: { menu_item_id },
       });
 
-      // Insert new recipe ingredients
       const created = [];
       for (const ing of ingredients) {
         const { ingredient_id, quantity } = ing;
@@ -324,12 +354,12 @@ export const saveRecipe = async (req: Request, res: Response) => {
           throw new Error(`Ingredient not found: ${ingredient_id}`);
         }
 
-        if (role !== 'OWNER' && role !== 'ADMIN' && dbIng.branch_id !== userBranchId) {
-          throw new Error(`Forbidden: Ingredient "${dbIng.name}" belongs to another branch`);
+        if (role !== 'OWNER' && role !== 'ADMIN' && dbIng.business_id !== userBusinessId) {
+          throw new Error(`Forbidden: Ingredient "${dbIng.name}" belongs to another business`);
         }
 
-        if (menuItem.branch_id !== dbIng.branch_id) {
-          throw new Error(`Ingredient "${dbIng.name}" belongs to a different branch than the menu item`);
+        if (menuItem.business_id !== dbIng.business_id) {
+          throw new Error(`Ingredient "${dbIng.name}" belongs to a different business than the menu item`);
         }
 
         const relation = await tx.recipeIngredient.create({

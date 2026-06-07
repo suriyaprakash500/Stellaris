@@ -1,14 +1,37 @@
 import { Request, Response } from 'express';
 import prisma from '../db/prisma';
 import { OrderStatus } from '@prisma/client';
-import { BRANCH_RESTRICTED_ROLES } from '../middleware/authMiddleware';
+import { BUSINESS_RESTRICTED_ROLES } from '../middleware/authMiddleware';
 import { logAudit } from '../utils/auditLogger';
 
 export const createOrder = async (req: Request, res: Response) => {
   try {
     // @ts-ignore
-    const userId = req.user.id;
-    const { items, branch_id } = req.body; // Array of { menu_item_id, quantity, customizations } and branch_id
+    const { id: userId, role, businessId: actorBusinessId, branchId: actorBranchId } = req.user;
+    const { items, business_id, branch_id } = req.body; // Array of { menu_item_id, quantity, customizations }
+
+    let finalBranchId = branch_id;
+    let finalBusinessId = business_id;
+
+    if (role === 'MANAGER' || role === 'STAFF') {
+      finalBranchId = actorBranchId;
+      finalBusinessId = actorBusinessId;
+    } else {
+      if (finalBranchId && (!finalBusinessId || finalBusinessId === '')) {
+        const br = await prisma.branch.findUnique({ where: { id: finalBranchId } });
+        if (br) {
+          finalBusinessId = br.business_id;
+        }
+      }
+    }
+
+    if (role === 'STAFF') {
+      // @ts-ignore
+      const userObj = req.user.user;
+      if (!userObj?.can_process_billing) {
+        return res.status(403).json({ error: 'Forbidden: Insufficient permissions to process billing' });
+      }
+    }
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'Order must contain at least one item' });
@@ -86,7 +109,8 @@ export const createOrder = async (req: Request, res: Response) => {
           user_id: userId,
           total_amount: totalAmount,
           status: 'PENDING',
-          branch_id: branch_id || null,
+          business_id: finalBusinessId || null,
+          branch_id: finalBranchId || null,
           order_items: {
             create: orderItemsData,
           },
@@ -106,7 +130,7 @@ export const createOrder = async (req: Request, res: Response) => {
 
     // @ts-ignore
     const userObj = result.user;
-    await logAudit(userId, userObj?.name || 'Customer', 'ORDER_CREATED', `Created order ${result.id.slice(0, 8)} totaling ₹${result.total_amount.toFixed(2)}`, result.branch_id);
+    await logAudit(userId, userObj?.name || 'Customer', 'ORDER_CREATED', `Created order ${result.id.slice(0, 8)} totaling ₹${result.total_amount.toFixed(2)}`, result.business_id);
 
     res.status(201).json(result);
   } catch (error: any) {
@@ -118,19 +142,23 @@ export const createOrder = async (req: Request, res: Response) => {
 export const getOrders = async (req: Request, res: Response) => {
   try {
     // @ts-ignore
-    const { id: userId, role, branchId: userBranchId } = req.user;
+    const { id: userId, role, businessId: userBusinessId, branchId: userBranchId } = req.user;
 
     let orders;
     if (role !== 'CUSTOMER') {
-      const { branchId: queryBranchId } = req.query;
+      const { businessId: queryBusinessId, branchId: queryBranchId } = req.query;
       const where: any = {};
 
-      if (BRANCH_RESTRICTED_ROLES.includes(role)) {
+      if (role === 'MANAGER' || role === 'STAFF') {
         if (userBranchId) {
           where.branch_id = userBranchId;
         }
-      } else if (queryBranchId && typeof queryBranchId === 'string' && queryBranchId !== '') {
-        where.branch_id = queryBranchId;
+      } else {
+        if (queryBranchId && typeof queryBranchId === 'string' && queryBranchId !== '') {
+          where.branch_id = queryBranchId;
+        } else if (queryBusinessId && typeof queryBusinessId === 'string' && queryBusinessId !== '') {
+          where.business_id = queryBusinessId;
+        }
       }
 
       orders = await prisma.order.findMany({
@@ -194,6 +222,25 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
       if (!validStaffStatuses.includes(status)) {
         return res.status(400).json({ error: 'Invalid status transition for staff' });
       }
+
+      // Check permission if STAFF role
+      if (role === 'STAFF') {
+        // @ts-ignore
+        const userObj = req.user.user;
+        if (status === 'PREPARING' || status === 'READY') {
+          if (!userObj?.can_prepare_food) {
+            return res.status(403).json({ error: 'Forbidden: Insufficient permissions to prepare food' });
+          }
+        } else if (status === 'DELIVERED') {
+          if (!userObj?.can_manage_delivery) {
+            return res.status(403).json({ error: 'Forbidden: Insufficient permissions to manage delivery' });
+          }
+        } else if (status === 'CANCELLED') {
+          if (!userObj?.can_process_billing) {
+            return res.status(403).json({ error: 'Forbidden: Insufficient permissions to cancel orders' });
+          }
+        }
+      }
     }
 
     const updateData: any = { status };
@@ -213,7 +260,7 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
     });
 
     const actor = await prisma.user.findUnique({ where: { id: userId } });
-    await logAudit(actor?.id, actor?.name, 'ORDER_UPDATED', `Updated order ${updatedOrder.id.slice(0, 8)} status to ${status}`, updatedOrder.branch_id);
+    await logAudit(actor?.id, actor?.name, 'ORDER_UPDATED', `Updated order ${updatedOrder.id.slice(0, 8)} status to ${status}`, updatedOrder.business_id);
 
     res.json(updatedOrder);
   } catch (error) {
@@ -252,8 +299,6 @@ export const recordPayment = async (req: Request, res: Response) => {
       },
     });
 
-    // If payment is completed and we've paid the full amount, update the order status
-    // Or let the client mark it. For simplicity, if payment succeeds, we transition status or keep tracking
     const totalPaid = order.payments.reduce((acc: number, p: any) => p.status === 'COMPLETED' ? acc + p.amount : acc, 0) + (status === 'COMPLETED' ? parseFloat(amount) : 0);
 
     res.status(201).json({ payment, totalPaid, total_amount: order.total_amount });

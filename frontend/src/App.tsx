@@ -51,16 +51,20 @@ const DashboardContent: React.FC = () => {
   };
 
   useEffect(() => {
-    // Set default active view based on role
+    // Set default active view based on role and permissions
     if (user) {
       if (['OWNER', 'ADMIN', 'MANAGER'].includes(user.role)) {
         setActiveView('manager');
-      } else if (['COOK', 'KITCHEN_STAFF', 'SHOP_CAPTAIN'].includes(user.role)) {
+      } else if (user.role === 'STAFF' && user.permissions?.can_prepare_food) {
         setActiveView('kitchen');
-      } else if (['HELPER', 'DELIVERY'].includes(user.role)) {
+      } else if (user.role === 'STAFF' && user.permissions?.can_manage_delivery) {
         setActiveView('delivery');
-      } else {
+      } else if (user.role === 'STAFF' && user.permissions?.can_process_billing) {
         setActiveView('customer');
+      } else if (user.role === 'CUSTOMER') {
+        setActiveView('customer');
+      } else {
+        setActiveView('tracking');
       }
       fetchStaffStatus();
       fetchBusinessName();
@@ -99,7 +103,7 @@ const DashboardContent: React.FC = () => {
 
   if (!user) return null;
 
-  const showClockInOptions = user.role !== 'CUSTOMER';
+  const showClockInOptions = user.role !== 'CUSTOMER' && (['OWNER', 'ADMIN', 'MANAGER'].includes(user.role) || user.permissions?.can_clock_in_out);
 
   return (
     <div className="app-container">
@@ -131,7 +135,7 @@ const DashboardContent: React.FC = () => {
             )}
 
             {/* Kitchen Navigation */}
-            {['OWNER', 'ADMIN', 'MANAGER', 'SHOP_CAPTAIN', 'BILLER', 'COOK', 'KITCHEN_STAFF'].includes(user.role) && (
+            {((['OWNER', 'ADMIN', 'MANAGER'].includes(user.role)) || (user.role === 'STAFF' && user.permissions?.can_prepare_food)) && (
               <li
                 className={`nav-item ${activeView === 'kitchen' ? 'active' : ''}`}
                 onClick={() => setActiveView('kitchen')}
@@ -142,7 +146,7 @@ const DashboardContent: React.FC = () => {
             )}
 
             {/* Delivery Navigation */}
-            {['OWNER', 'ADMIN', 'MANAGER', 'SHOP_CAPTAIN', 'HELPER', 'DELIVERY'].includes(user.role) && (
+            {((['OWNER', 'ADMIN', 'MANAGER'].includes(user.role)) || (user.role === 'STAFF' && user.permissions?.can_manage_delivery)) && (
               <li
                 className={`nav-item ${activeView === 'delivery' ? 'active' : ''}`}
                 onClick={() => setActiveView('delivery')}
@@ -153,7 +157,7 @@ const DashboardContent: React.FC = () => {
             )}
 
             {/* Customer Navigation */}
-            {['OWNER', 'ADMIN', 'MANAGER', 'BILLER', 'CUSTOMER'].includes(user.role) && (
+            {((['OWNER', 'ADMIN', 'MANAGER', 'CUSTOMER'].includes(user.role)) || (user.role === 'STAFF' && user.permissions?.can_process_billing)) && (
               <li
                 className={`nav-item ${activeView === 'customer' ? 'active' : ''}`}
                 onClick={() => setActiveView('customer')}
@@ -217,8 +221,8 @@ const DashboardContent: React.FC = () => {
       {/* Main Content Area */}
       <main className="main-content">
         {activeView === 'manager' && ['OWNER', 'ADMIN', 'MANAGER'].includes(user.role) && <ManagerDashboard />}
-        {activeView === 'kitchen' && ['OWNER', 'ADMIN', 'MANAGER', 'SHOP_CAPTAIN', 'BILLER', 'COOK', 'KITCHEN_STAFF'].includes(user.role) && <KitchenScreen />}
-        {activeView === 'delivery' && ['OWNER', 'ADMIN', 'MANAGER', 'SHOP_CAPTAIN', 'HELPER', 'DELIVERY'].includes(user.role) && <DeliveryPortal />}
+        {activeView === 'kitchen' && (['OWNER', 'ADMIN', 'MANAGER'].includes(user.role) || (user.role === 'STAFF' && user.permissions?.can_prepare_food)) && <KitchenScreen />}
+        {activeView === 'delivery' && (['OWNER', 'ADMIN', 'MANAGER'].includes(user.role) || (user.role === 'STAFF' && user.permissions?.can_manage_delivery)) && <DeliveryPortal />}
         {activeView === 'customer' && <CustomerPortal activeSubView="order" />}
         {activeView === 'tracking' && <CustomerPortal activeSubView="tracking" />}
       </main>
@@ -296,6 +300,86 @@ const DashboardContent: React.FC = () => {
   );
 };
 
+const ForceChangePassword: React.FC = () => {
+  const { logout, showToast, setUser } = useAuth();
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    setError('');
+    setSubmitting(true);
+    try {
+      await api.changePassword(newPassword);
+      showToast('Password updated successfully! Welcome.', 'success');
+      const profile = await api.getProfile();
+      setUser(profile);
+    } catch (err: any) {
+      setError(err.message || 'Failed to change password. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-primary)' }}>
+      <div className="card" style={{ width: '400px', padding: '32px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ textAlign: 'center' }}>
+          <h2 style={{ fontFamily: 'var(--font-display)', marginBottom: '8px' }}>Reset Temporary Password</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>This is your first login. You must configure a new, secure password to continue.</p>
+        </div>
+
+        {error && <div className="toast toast-error" style={{ position: 'static', width: '100%' }}>{error}</div>}
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="form-group">
+            <label className="form-label" htmlFor="new-pwd-input">New Password</label>
+            <input
+              id="new-pwd-input"
+              type="password"
+              className="input-control"
+              placeholder="••••••••"
+              value={newPassword}
+              onChange={(e) => { setNewPassword(e.target.value); setError(''); }}
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label" htmlFor="confirm-pwd-input">Confirm New Password</label>
+            <input
+              id="confirm-pwd-input"
+              type="password"
+              className="input-control"
+              placeholder="••••••••"
+              value={confirmPassword}
+              onChange={(e) => { setConfirmPassword(e.target.value); setError(''); }}
+              required
+            />
+          </div>
+
+          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '10px' }} disabled={submitting}>
+            {submitting ? 'Updating password...' : 'Update Password & Login'}
+          </button>
+        </form>
+
+        <button className="btn btn-secondary" style={{ width: '100%' }} onClick={logout}>
+          Log Out
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const AppContent: React.FC = () => {
   const { user, loading } = useAuth();
 
@@ -308,7 +392,14 @@ const AppContent: React.FC = () => {
     );
   }
 
-  return user ? <DashboardContent /> : <LoginRegister />;
+  if (user) {
+    if (user.mustChangePassword) {
+      return <ForceChangePassword />;
+    }
+    return <DashboardContent />;
+  }
+
+  return <LoginRegister />;
 };
 
 function App() {
@@ -320,3 +411,4 @@ function App() {
 }
 
 export default App;
+

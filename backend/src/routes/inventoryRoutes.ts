@@ -12,7 +12,7 @@ import {
   getRecipe,
   saveRecipe,
 } from '../controllers/inventoryController';
-import { authenticate, authorizeRole } from '../middleware/authMiddleware';
+import { authenticate, authorizePermission } from '../middleware/authMiddleware';
 
 const router = Router();
 
@@ -20,22 +20,23 @@ const router = Router();
 router.use(authenticate);
 
 // 1. Ingredients
-router.get('/', authorizeRole(['ADMIN', 'MANAGER', 'KITCHEN_STAFF']), getIngredients);
-router.post('/', authorizeRole(['ADMIN', 'MANAGER']), createIngredient);
-router.put('/:id', authorizeRole(['ADMIN', 'MANAGER']), updateIngredient);
-router.delete('/:id', authorizeRole(['ADMIN', 'MANAGER']), deleteIngredient);
+router.get('/', getIngredients);
+router.post('/', authorizePermission('can_manage_inventory'), createIngredient);
+router.put('/:id', authorizePermission('can_manage_inventory'), updateIngredient);
+router.delete('/:id', authorizePermission('can_manage_inventory'), deleteIngredient);
 
 // Stock adjustment (Audit restocks / waste logs)
-router.post('/adjust', authorizeRole(['ADMIN', 'MANAGER']), adjustStock);
+router.post('/adjust', authorizePermission('can_manage_inventory'), adjustStock);
 
 // 2. Vendors
-router.get('/vendors', authorizeRole(['ADMIN', 'MANAGER']), getVendors);
-router.post('/vendors', authorizeRole(['ADMIN', 'MANAGER']), createVendor);
-router.put('/vendors/:id', authorizeRole(['ADMIN', 'MANAGER']), updateVendor);
-router.delete('/vendors/:id', authorizeRole(['ADMIN', 'MANAGER']), deleteVendor);
+router.get('/vendors', getVendors);
+router.post('/vendors', authorizePermission('can_manage_inventory'), createVendor);
+router.put('/vendors/:id', authorizePermission('can_manage_inventory'), updateVendor);
+router.delete('/vendors/:id', authorizePermission('can_manage_inventory'), deleteVendor);
 
 // 3. Recipes
-router.get('/recipes/:menuItemId', authorizeRole(['ADMIN', 'MANAGER', 'KITCHEN_STAFF']), getRecipe);
-router.post('/recipes', authorizeRole(['ADMIN', 'MANAGER']), saveRecipe);
+router.get('/recipes/:menuItemId', getRecipe);
+router.post('/recipes', authorizePermission('can_manage_recipes'), saveRecipe);
 
 export default router;
+

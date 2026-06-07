@@ -5,7 +5,21 @@ interface User {
   id: string;
   email: string;
   name: string;
-  role: 'ADMIN' | 'MANAGER' | 'KITCHEN_STAFF' | 'DELIVERY' | 'CUSTOMER' | 'OWNER';
+  role: 'ADMIN' | 'MANAGER' | 'STAFF' | 'CUSTOMER' | 'OWNER' | 'KITCHEN_STAFF' | 'DELIVERY'; // support legacy string literal types to avoid compile warnings
+  mustChangePassword?: boolean;
+  businessId?: string;
+  branchId?: string;
+  permissions?: {
+    can_manage_menu: boolean;
+    can_prepare_food: boolean;
+    can_manage_delivery: boolean;
+    can_process_billing: boolean;
+    can_view_reports: boolean;
+    can_manage_inventory: boolean;
+    can_manage_recipes: boolean;
+    can_manage_shifts: boolean;
+    can_clock_in_out: boolean;
+  };
 }
 
 interface Toast {
@@ -19,8 +33,9 @@ interface AuthContextType {
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, mobile_no: string, password: string, name: string, role: string) => Promise<void>;
+  register: (email: string, mobile_no: string, password: string, name: string) => Promise<void>;
   logout: () => void;
+  setUser: React.Dispatch<React.SetStateAction<User | null>>;
   toasts: Toast[];
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
@@ -71,9 +86,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (email: string, mobile_no: string, password: string, name: string, role: string) => {
+  const register = async (email: string, mobile_no: string, password: string, name: string) => {
     try {
-      const data = await api.register({ email, mobile_no, password, name, role });
+      const data = await api.register({ email, mobile_no, password, name });
       localStorage.setItem('stellaris_token', data.token);
       setToken(data.token);
       setUser(data.user);
@@ -92,7 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, toasts, showToast }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, setUser, toasts, showToast }}>
       {children}
       <div className="toast-container" style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 1000, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {toasts.map((toast) => (

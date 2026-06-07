@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -14,16 +11,11 @@ datasource db {
 }
 
 enum Role {
+  OWNER
   ADMIN
   MANAGER
-  KITCHEN_STAFF
-  DELIVERY
+  STAFF
   CUSTOMER
-  OWNER
-  BILLER
-  HELPER
-  COOK
-  SHOP_CAPTAIN
 }
 
 enum OrderStatus {
@@ -55,17 +47,36 @@ enum ShiftStatus {
 }
 
 model User {
-  id            String   @id @default(uuid())
-  email         String   @unique
-  mobile_no     String?  @unique
-  password_hash String
-  name          String
-  role          Role     @default(CUSTOMER)
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
+  id                    String   @id @default(uuid())
+  email                 String   @unique
+  mobile_no             String?  @unique
+  password_hash         String
+  name                  String
+  role                  Role     @default(CUSTOMER)
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
   
-  branch_id     String?
-  branch        Branch?  @relation(fields: [branch_id], references: [id], onDelete: SetNull)
+  must_change_password  Boolean  @default(false)
+  role_title            String?  // Custom title / designation (Cook, Cashier, Tea Boy, Helper, etc.)
+  
+  // Permissions
+  can_manage_menu       Boolean  @default(false)
+  can_prepare_food      Boolean  @default(false)
+  can_manage_delivery   Boolean  @default(false)
+  can_process_billing   Boolean  @default(false)
+  can_view_reports      Boolean  @default(false)
+  can_manage_inventory  Boolean  @default(false)
+  can_manage_recipes    Boolean  @default(false)
+  can_manage_shifts     Boolean  @default(false)
+  can_clock_in_out      Boolean  @default(true)
+
+  business_id           String?
+  business              Business? @relation("BusinessUsers", fields: [business_id], references: [id], onDelete: SetNull)
+
+  branch_id             String?
+  branch                Branch?   @relation("BranchUsers", fields: [branch_id], references: [id], onDelete: SetNull)
+
+  owned_businesses      Business[] @relation("OwnerBusinesses")
 
   orders          Order[]
   adjustments     InventoryAdjustment[]
@@ -85,8 +96,8 @@ model MenuItem {
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 
-  branch_id    String?
-  branch       Branch?  @relation(fields: [branch_id], references: [id], onDelete: SetNull)
+  business_id  String?
+  business     Business?  @relation(fields: [business_id], references: [id], onDelete: SetNull)
 
   order_items        OrderItem[]
   recipe_ingredients RecipeIngredient[]
@@ -106,7 +117,9 @@ model Order {
   delivered_at    DateTime?
 
   branch_id    String?
-  branch       Branch?  @relation(fields: [branch_id], references: [id], onDelete: SetNull)
+  branch       Branch?    @relation(fields: [branch_id], references: [id], onDelete: SetNull)
+  business_id  String?
+  business     Business?  @relation(fields: [business_id], references: [id], onDelete: SetNull)
 
   order_items OrderItem[]
   payments    Payment[]
@@ -145,7 +158,8 @@ model Ingredient {
   vendor          Vendor?  @relation(fields: [vendor_id], references: [id])
 
   branch_id       String?
-  branch          Branch?  @relation(fields: [branch_id], references: [id], onDelete: SetNull)
+  branch          Branch?    @relation(fields: [branch_id], references: [id], onDelete: SetNull)
+  business_id     String?    // Keep optional business_id for convenience
 
   recipe_ingredients RecipeIngredient[]
   adjustments        InventoryAdjustment[]
@@ -225,26 +239,42 @@ model Category {
 }
 
 model BusinessSettings {
+  id          String   @id @default(uuid())
+  shop_name   String
+  fssai_no    String?
+  mobile_no   String?
+  location    String?
+  business_id String?
+  updated_at  DateTime @updatedAt
+}
+
+model Business {
   id         String   @id @default(uuid())
-  shop_name  String
-  fssai_no   String?
-  mobile_no  String?
-  location   String?
-  branch_id  String?
-  updated_at DateTime @updatedAt
+  name       String   @unique
+  created_at DateTime @default(now())
+
+  owner_id   String?
+  owner      User?    @relation("OwnerBusinesses", fields: [owner_id], references: [id], onDelete: Cascade)
+
+  branches    Branch[]
+  users       User[]       @relation("BusinessUsers")
+  menu_items  MenuItem[]
+  orders      Order[]
 }
 
 model Branch {
-  id         String   @id @default(uuid())
-  name       String   @unique
-  location   String?
-  mobile_no  String?
-  created_at DateTime @default(now())
+  id          String   @id @default(uuid())
+  name        String
+  location    String?
+  mobile_no   String?
+  created_at  DateTime @default(now())
 
-  users       User[]
-  menu_items  MenuItem[]
-  orders      Order[]
+  business_id String
+  business    Business @relation(fields: [business_id], references: [id], onDelete: Cascade)
+
+  users       User[]       @relation("BranchUsers")
   ingredients Ingredient[]
+  orders      Order[]
 }
 
 model AuditLog {
@@ -253,7 +283,7 @@ model AuditLog {
   user_name   String?
   action      String
   details     String
+  business_id String?
   branch_id   String?
   timestamp   DateTime @default(now())
 }
-
