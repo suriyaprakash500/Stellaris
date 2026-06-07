@@ -11,7 +11,6 @@ export const LoginRegister: React.FC = () => {
   const [mobileNo, setMobileNo] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState('CUSTOMER');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [phone, setPhone] = useState('');
