@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Stellaris</string>
+    <string name="title_activity_main">Stellaris</string>
+    <string name="package_name">com.stellaris.pos</string>
+    <string name="custom_url_scheme">com.stellaris.pos</string>
+</resources>
