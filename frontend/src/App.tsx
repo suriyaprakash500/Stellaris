@@ -14,13 +14,16 @@ import {
   ShoppingBag,
   Clock,
   Calendar,
-  User as UserIcon
+  User as UserIcon,
+  Menu as MenuIcon,
+  X
 } from 'lucide-react';
 
 const DashboardContent: React.FC = () => {
   const { user, logout, showToast } = useAuth();
   const [activeView, setActiveView] = useState<string>('');
   const [businessName, setBusinessName] = useState<string>('Loading...');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const fetchBusinessName = async () => {
     try {
@@ -109,112 +112,130 @@ const DashboardContent: React.FC = () => {
     <div className="app-container">
       {/* Sidebar navigation */}
       <aside className="sidebar">
-        <div className="logo-container" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '4px', height: 'auto', marginBottom: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div className="logo-icon">S</div>
-            <div className="logo-text">Stellaris</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', height: 'auto', marginBottom: '0px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div className="logo-icon">S</div>
+              <div className="logo-text">Stellaris</div>
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500, paddingLeft: '4px' }}>
+              Business Owner: {businessName}
+            </div>
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500, paddingLeft: '4px' }}>
-            Business Owner: {businessName}
-          </div>
+          <button 
+            className="mobile-menu-toggle" 
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            style={{ 
+              background: 'none', 
+              border: 'none', 
+              color: 'var(--text-primary)', 
+              cursor: 'pointer',
+              padding: '8px'
+            }}
+          >
+            {isMenuOpen ? <X size={24} /> : <MenuIcon size={24} />}
+          </button>
         </div>
 
-        <nav style={{ flexGrow: 1 }}>
-          <ul className="nav-list">
-             {/* Admin / Manager Navigation */}
-            {['OWNER', 'ADMIN', 'MANAGER'].includes(user.role) && (
-              <>
-                <li
-                  className={`nav-item ${activeView === 'manager' ? 'active' : ''}`}
-                  onClick={() => setActiveView('manager')}
-                >
-                  <TrendingUp size={18} />
-                  <span>Operations</span>
-                </li>
-              </>
-            )}
-
-            {/* Kitchen Navigation */}
-            {((['OWNER', 'ADMIN', 'MANAGER'].includes(user.role)) || (user.role === 'STAFF' && user.permissions?.can_prepare_food)) && (
-              <li
-                className={`nav-item ${activeView === 'kitchen' ? 'active' : ''}`}
-                onClick={() => setActiveView('kitchen')}
-              >
-                <ChefHat size={18} />
-                <span>Kitchen Queue</span>
-              </li>
-            )}
-
-            {/* Delivery Navigation */}
-            {((['OWNER', 'ADMIN', 'MANAGER'].includes(user.role)) || (user.role === 'STAFF' && user.permissions?.can_manage_delivery)) && (
-              <li
-                className={`nav-item ${activeView === 'delivery' ? 'active' : ''}`}
-                onClick={() => setActiveView('delivery')}
-              >
-                <Bike size={18} />
-                <span>Delivery Dispatch</span>
-              </li>
-            )}
-
-            {/* Customer Navigation */}
-            {((['OWNER', 'ADMIN', 'MANAGER', 'CUSTOMER'].includes(user.role)) || (user.role === 'STAFF' && user.permissions?.can_process_billing)) && (
-              <li
-                className={`nav-item ${activeView === 'customer' ? 'active' : ''}`}
-                onClick={() => setActiveView('customer')}
-              >
-                <ShoppingBag size={18} />
-                <span>Order Food</span>
-              </li>
-            )}
-            <li
-              className={`nav-item ${activeView === 'tracking' ? 'active' : ''}`}
-              onClick={() => setActiveView('tracking')}
-            >
-              <Clock size={18} />
-              <span>Track Orders</span>
-            </li>
-          </ul>
-        </nav>
-
-        {/* Sidebar Footer containing user profile, clock-in, and logout */}
-        <div className="sidebar-footer">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-            <div style={{ background: 'var(--bg-tertiary)', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <UserIcon size={18} style={{ color: 'var(--primary-hover)' }} />
-            </div>
-            <div style={{ overflow: 'hidden' }}>
-              <div style={{ fontWeight: 600, fontSize: '14px', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{user.name}</div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{user.role}</div>
-            </div>
-          </div>
-
-          {showClockInOptions && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-              {activeTimesheet ? (
-                <button className="btn btn-danger" style={{ padding: '8px 12px', fontSize: '13px', width: '100%', gap: '6px' }} onClick={handleClockOut}>
-                  <Clock size={14} /> Clock Out
-                </button>
-              ) : (
-                <button className="btn btn-success" style={{ padding: '8px 12px', fontSize: '13px', width: '100%', gap: '6px' }} onClick={handleClockIn}>
-                  <Clock size={14} /> Clock In
-                </button>
+        <div className={`sidebar-nav-content ${isMenuOpen ? 'open' : ''}`}>
+          <nav style={{ flexGrow: 1 }}>
+            <ul className="nav-list">
+               {/* Admin / Manager Navigation */}
+              {['OWNER', 'ADMIN', 'MANAGER'].includes(user.role) && (
+                <>
+                  <li
+                    className={`nav-item ${activeView === 'manager' ? 'active' : ''}`}
+                    onClick={() => { setActiveView('manager'); setIsMenuOpen(false); }}
+                  >
+                    <TrendingUp size={18} />
+                    <span>Operations</span>
+                  </li>
+                </>
               )}
-              <button
-                className="btn btn-secondary"
-                style={{ padding: '8px 12px', fontSize: '13px', width: '100%', gap: '6px' }}
-                onClick={() => {
-                  fetchStaffStatus();
-                  setIsShiftModalOpen(true);
-                }}
-              >
-                <Calendar size={14} /> My Scheduled Shifts
-              </button>
-            </div>
-          )}
 
-          <button className="btn btn-secondary" style={{ width: '100%', gap: '8px', color: 'var(--danger)' }} onClick={logout}>
-            <LogOut size={16} /> Log Out
-          </button>
+              {/* Kitchen Navigation */}
+              {((['OWNER', 'ADMIN', 'MANAGER'].includes(user.role)) || (user.role === 'STAFF' && user.permissions?.can_prepare_food)) && (
+                <li
+                  className={`nav-item ${activeView === 'kitchen' ? 'active' : ''}`}
+                  onClick={() => { setActiveView('kitchen'); setIsMenuOpen(false); }}
+                >
+                  <ChefHat size={18} />
+                  <span>Kitchen Queue</span>
+                </li>
+              )}
+
+              {/* Delivery Navigation */}
+              {((['OWNER', 'ADMIN', 'MANAGER'].includes(user.role)) || (user.role === 'STAFF' && user.permissions?.can_manage_delivery)) && (
+                <li
+                  className={`nav-item ${activeView === 'delivery' ? 'active' : ''}`}
+                  onClick={() => { setActiveView('delivery'); setIsMenuOpen(false); }}
+                >
+                  <Bike size={18} />
+                  <span>Delivery Dispatch</span>
+                </li>
+              )}
+
+              {/* Customer Navigation */}
+              {((['OWNER', 'ADMIN', 'MANAGER', 'CUSTOMER'].includes(user.role)) || (user.role === 'STAFF' && user.permissions?.can_process_billing)) && (
+                <li
+                  className={`nav-item ${activeView === 'customer' ? 'active' : ''}`}
+                  onClick={() => { setActiveView('customer'); setIsMenuOpen(false); }}
+                >
+                  <ShoppingBag size={18} />
+                  <span>Order Food</span>
+                </li>
+              )}
+              <li
+                className={`nav-item ${activeView === 'tracking' ? 'active' : ''}`}
+                onClick={() => { setActiveView('tracking'); setIsMenuOpen(false); }}
+              >
+                <Clock size={18} />
+                <span>Track Orders</span>
+              </li>
+            </ul>
+          </nav>
+
+          {/* Sidebar Footer containing user profile, clock-in, and logout */}
+          <div className="sidebar-footer">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <div style={{ background: 'var(--bg-tertiary)', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <UserIcon size={18} style={{ color: 'var(--primary-hover)' }} />
+              </div>
+              <div style={{ overflow: 'hidden' }}>
+                <div style={{ fontWeight: 600, fontSize: '14px', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{user.name}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{user.role}</div>
+              </div>
+            </div>
+
+            {showClockInOptions && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                {activeTimesheet ? (
+                  <button className="btn btn-danger" style={{ padding: '8px 12px', fontSize: '13px', width: '100%', gap: '6px' }} onClick={handleClockOut}>
+                    <Clock size={14} /> Clock Out
+                  </button>
+                ) : (
+                  <button className="btn btn-success" style={{ padding: '8px 12px', fontSize: '13px', width: '100%', gap: '6px' }} onClick={handleClockIn}>
+                    <Clock size={14} /> Clock In
+                  </button>
+                )}
+                <button
+                  className="btn btn-secondary"
+                  style={{ padding: '8px 12px', fontSize: '13px', width: '100%', gap: '6px' }}
+                  onClick={() => {
+                    fetchStaffStatus();
+                    setIsShiftModalOpen(true);
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  <Calendar size={14} /> My Scheduled Shifts
+                </button>
+              </div>
+            )}
+
+            <button className="btn btn-secondary" style={{ width: '100%', gap: '8px', color: 'var(--danger)' }} onClick={logout}>
+              <LogOut size={16} /> Log Out
+            </button>
+          </div>
         </div>
       </aside>
 

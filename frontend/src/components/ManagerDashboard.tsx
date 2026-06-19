@@ -657,7 +657,7 @@ export const ManagerDashboard: React.FC = () => {
           <h2>Operations Dashboard</h2>
           <p style={{ color: 'var(--text-secondary)' }}>Manage restaurant inventory, scheduling, menus, and view reports.</p>
         </div>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           {(user?.role === 'OWNER' || user?.role === 'ADMIN') && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '12px' }}>
               <label htmlFor="dashboard-branch-select" style={{ fontSize: '14px', fontWeight: 'bold', color: 'var(--text-secondary)' }}>Branch:</label>
@@ -1129,7 +1129,7 @@ export const ManagerDashboard: React.FC = () => {
                   {categories.length === 0 && (
                     <tr>
                       <td colSpan={2} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>
-                        No categories configured. Create one on the right!
+                        No categories configured. Create one using the Add Category form!
                       </td>
                     </tr>
                   )}
