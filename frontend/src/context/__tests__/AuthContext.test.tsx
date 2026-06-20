@@ -16,13 +16,17 @@ vi.mock('../../api', () => ({
 const TestConsumer: React.FC = () => {
   const { user, token, loading, login, register, logout, toasts, showToast } = useAuth();
 
+  const handleAction = (action: () => Promise<void>) => {
+    action().catch(() => {});
+  };
+
   return (
     <div>
       <div data-testid="loading">{loading ? 'true' : 'false'}</div>
       <div data-testid="token">{token || 'null'}</div>
       <div data-testid="user">{user ? user.name : 'null'}</div>
-      <button data-testid="login-btn" onClick={() => login('test@gmail.com', 'Password123').catch(() => {})}>Login</button>
-      <button data-testid="register-btn" onClick={() => register('test@gmail.com', '9876543210', 'Password123', 'Test User').catch(() => {})}>Register</button>
+      <button data-testid="login-btn" onClick={() => handleAction(() => login('test@gmail.com', 'Password123'))}>Login</button>
+      <button data-testid="register-btn" onClick={() => handleAction(() => register('test@gmail.com', '9876543210', 'Password123', 'Test User'))}>Register</button>
       <button data-testid="logout-btn" onClick={() => logout()}>Logout</button>
       <button data-testid="toast-btn" onClick={() => showToast('Test Message', 'success')}>Toast</button>
       <div data-testid="toasts">
