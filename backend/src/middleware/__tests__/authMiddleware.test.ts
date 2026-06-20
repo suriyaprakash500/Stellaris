@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { authenticate } from '../authMiddleware';
+import { authenticate, authorizeRole, authorizePermission } from '../authMiddleware';
 import jwt from 'jsonwebtoken';
 import prisma from '../../db/prisma';
 
@@ -139,5 +139,113 @@ describe('authMiddleware - authenticate', () => {
       branchId: 'branch-123',
       user: mockUserRecord,
     });
+  });
+});
+
+describe('authMiddleware - authorizeRole', () => {
+  let mockRequest: any;
+  let mockResponse: any;
+  let nextFunction: any;
+
+  beforeEach(() => {
+    mockRequest = {};
+    mockResponse = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    };
+    nextFunction = vi.fn();
+  });
+
+  it('should return 403 Forbidden if user role is not attached to request', () => {
+    const middleware = authorizeRole(['MANAGER']);
+    middleware(mockRequest, mockResponse, nextFunction);
+    expect(mockResponse.status).toHaveBeenCalledWith(403);
+    expect(mockResponse.json).toHaveBeenCalledWith({ error: 'Forbidden' });
+    expect(nextFunction).not.toHaveBeenCalled();
+  });
+
+  it('should call next() if user role matches exactly', () => {
+    mockRequest.user = { role: 'MANAGER' };
+    const middleware = authorizeRole(['MANAGER']);
+    middleware(mockRequest, mockResponse, nextFunction);
+    expect(nextFunction).toHaveBeenCalled();
+  });
+
+  it('should call next() if user role is higher in hierarchy', () => {
+    mockRequest.user = { role: 'OWNER' };
+    const middleware = authorizeRole(['MANAGER']);
+    middleware(mockRequest, mockResponse, nextFunction);
+    expect(nextFunction).toHaveBeenCalled();
+  });
+
+  it('should return 403 Forbidden if user role is lower in hierarchy', () => {
+    mockRequest.user = { role: 'CUSTOMER' };
+    const middleware = authorizeRole(['MANAGER']);
+    middleware(mockRequest, mockResponse, nextFunction);
+    expect(mockResponse.status).toHaveBeenCalledWith(403);
+    expect(mockResponse.json).toHaveBeenCalledWith({ error: 'Forbidden' });
+    expect(nextFunction).not.toHaveBeenCalled();
+  });
+});
+
+describe('authMiddleware - authorizePermission', () => {
+  let mockRequest: any;
+  let mockResponse: any;
+  let nextFunction: any;
+
+  beforeEach(() => {
+    mockRequest = {};
+    mockResponse = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    };
+    nextFunction = vi.fn();
+  });
+
+  it('should return 403 Forbidden if user role is missing', () => {
+    const middleware = authorizePermission('can_manage_menu');
+    middleware(mockRequest, mockResponse, nextFunction);
+    expect(mockResponse.status).toHaveBeenCalledWith(403);
+    expect(mockResponse.json).toHaveBeenCalledWith({ error: 'Forbidden' });
+  });
+
+  it('should allow OWNER and ADMIN to bypass checks', () => {
+    mockRequest.user = { role: 'OWNER' };
+    let middleware = authorizePermission('can_manage_menu');
+    middleware(mockRequest, mockResponse, nextFunction);
+    expect(nextFunction).toHaveBeenCalledTimes(1);
+
+    mockRequest.user = { role: 'ADMIN' };
+    middleware = authorizePermission('can_manage_menu');
+    middleware(mockRequest, mockResponse, nextFunction);
+    expect(nextFunction).toHaveBeenCalledTimes(2);
+  });
+
+  it('should allow MANAGER to bypass checks', () => {
+    mockRequest.user = { role: 'MANAGER' };
+    const middleware = authorizePermission('can_manage_menu');
+    middleware(mockRequest, mockResponse, nextFunction);
+    expect(nextFunction).toHaveBeenCalled();
+  });
+
+  it('should allow STAFF if the required permission flag is true', () => {
+    mockRequest.user = {
+      role: 'STAFF',
+      user: { can_manage_menu: true }
+    };
+    const middleware = authorizePermission('can_manage_menu');
+    middleware(mockRequest, mockResponse, nextFunction);
+    expect(nextFunction).toHaveBeenCalled();
+  });
+
+  it('should reject STAFF if the required permission flag is false or missing', () => {
+    mockRequest.user = {
+      role: 'STAFF',
+      user: { can_manage_menu: false }
+    };
+    const middleware = authorizePermission('can_manage_menu');
+    middleware(mockRequest, mockResponse, nextFunction);
+    expect(mockResponse.status).toHaveBeenCalledWith(403);
+    expect(mockResponse.json).toHaveBeenCalledWith({ error: 'Forbidden: Insufficient permissions' });
   });
 });
