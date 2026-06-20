@@ -9,7 +9,7 @@
     "start": "node dist/index.js",
     "prisma:generate": "dotenv -e properties.config prisma generate",
     "prisma:push": "dotenv -e properties.config prisma db push",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run"
   },
   "keywords": [],
   "author": "",
@@ -36,6 +36,7 @@
     "nodemon": "^3.1.14",
     "prisma": "^5.22.0",
     "ts-node": "^10.9.2",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
   }
 }
