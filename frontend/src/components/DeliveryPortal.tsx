@@ -104,7 +104,7 @@ export const DeliveryPortal: React.FC = () => {
         {/* History of Completed Deliveries */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <h3>My Completed Deliveries ({pastDeliveries.length})</h3>
-          <div className="table-container">
+          <div className="table-container hidden-mobile">
             <table className="table">
               <thead>
                 <tr>
@@ -134,6 +134,35 @@ export const DeliveryPortal: React.FC = () => {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile View of Completed Deliveries */}
+          <div className="visible-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {pastDeliveries.map((order) => (
+              <div key={order.id} className="mobile-card">
+                <div className="mobile-card-header">
+                  <span className="mobile-card-title">Order #{order.id.slice(0, 8)}</span>
+                  <span className="badge badge-delivered">{order.status}</span>
+                </div>
+                <div className="mobile-card-body">
+                  <div className="mobile-card-row">
+                    <span>Customer</span>
+                    <span className="mobile-card-row-value">{order.user?.name || 'Guest'}</span>
+                  </div>
+                  <div className="mobile-card-row">
+                    <span>Total Amount</span>
+                    <span className="mobile-card-row-value" style={{ fontWeight: 'bold', color: 'var(--success)' }}>
+                      ₹{order.total_amount.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {pastDeliveries.length === 0 && (
+              <div className="card" style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
+                No completed deliveries found.
+              </div>
+            )}
           </div>
         </div>
       </div>

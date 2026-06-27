@@ -281,45 +281,75 @@ export const CustomerPortal: React.FC<{ activeSubView?: 'order' | 'tracking' }> 
               ))}
             </div>
           ) : (
-            <div className="table-container" style={{ marginBottom: '40px' }}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Item Name</th>
-                    <th>Category</th>
-                    <th style={{ textAlign: 'right' }}>Price</th>
-                    <th style={{ textAlign: 'center' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
+            <>
+                <div className="table-container hidden-mobile" style={{ marginBottom: '40px' }}>
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Item Name</th>
+                        <th>Category</th>
+                        <th style={{ textAlign: 'right' }}>Price</th>
+                        <th style={{ textAlign: 'center' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredAndSortedMenuItems.map((item) => (
+                        <tr key={item.id}>
+                          <td>
+                            <div style={{ fontWeight: 600 }}>{item.name}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{item.description || 'No description'}</div>
+                          </td>
+                          <td>
+                            <span className="badge badge-pending" style={{ color: 'var(--text-primary)', textTransform: 'capitalize' }}>{item.category}</span>
+                          </td>
+                          <td style={{ textAlign: 'right', fontWeight: 'bold' }}>₹{item.price.toFixed(2)}</td>
+                          <td style={{ textAlign: 'center' }}>
+                            <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '13px' }} onClick={() => openCustomizer(item)}>
+                              Add to Order
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {filteredAndSortedMenuItems.length === 0 && (
+                        <tr>
+                          <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>
+                            No menu items found.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile List View of Menu Items */}
+                <div className="visible-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '40px' }}>
                   {filteredAndSortedMenuItems.map((item) => (
-                    <tr key={item.id}>
-                      <td>
-                        <div style={{ fontWeight: 600 }}>{item.name}</div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{item.description || 'No description'}</div>
-                      </td>
-                      <td>
-                        <span className="badge badge-pending" style={{ color: 'var(--text-primary)', textTransform: 'capitalize' }}>{item.category}</span>
-                      </td>
-                      <td style={{ textAlign: 'right', fontWeight: 'bold' }}>₹{item.price.toFixed(2)}</td>
-                      <td style={{ textAlign: 'center' }}>
-                        <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '13px' }} onClick={() => openCustomizer(item)}>
-                          Add to Order
-                        </button>
-                      </td>
-                    </tr>
+                    <div key={item.id} className="mobile-card" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '12px', padding: '12px' }}>
+                      {item.image_url ? (
+                        <img src={item.image_url} alt={item.name} style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: 'var(--radius-md)', flexShrink: 0 }} />
+                      ) : (
+                        <div style={{ width: '60px', height: '60px', backgroundColor: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '10px', flexShrink: 0 }}>No Image</div>
+                      )}
+                      <div style={{ flexGrow: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: '1.4', margin: '2px 0 6px 0' }}>{item.description || 'No description'}</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontWeight: 'bold', color: 'var(--primary-hover)', fontSize: '14px' }}>₹{item.price.toFixed(2)}</span>
+                          <button className="btn btn-primary" style={{ padding: '4px 10px', fontSize: '12px', minHeight: 'auto' }} onClick={() => openCustomizer(item)}>
+                            Add
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   ))}
                   {filteredAndSortedMenuItems.length === 0 && (
-                    <tr>
-                      <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>
-                        No menu items found.
-                      </td>
-                    </tr>
+                    <div className="card" style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>
+                      No menu items found.
+                    </div>
                   )}
-                </tbody>
-              </table>
-            </div>
-          )}
+                </div>
+              </>
+            )}
 
           {/* Cart Float Button */}
           {cart.length > 0 && (

@@ -257,7 +257,7 @@ const DashboardContent: React.FC = () => {
               <button className="btn-secondary" style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }} onClick={() => setIsShiftModalOpen(false)}>&times;</button>
             </div>
             <div className="modal-body" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-              <div className="table-container">
+              <div className="table-container hidden-mobile">
                 <table className="table">
                   <thead>
                     <tr>
@@ -309,6 +309,48 @@ const DashboardContent: React.FC = () => {
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Mobile View of Employee Shifts */}
+              <div className="visible-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {myShifts.map((shift) => (
+                  <div key={shift.id} className="mobile-card" style={{ padding: '12px' }}>
+                    <div className="mobile-card-header">
+                      <span className="mobile-card-title">{new Date(shift.start_time).toLocaleDateString()}</span>
+                      <span className={`badge ${
+                        shift.status === 'ASSIGNED' ? 'badge-pending' :
+                        shift.status === 'COMPLETED' ? 'badge-delivered' :
+                        shift.status === 'SWAP_REQUESTED' ? 'badge-preparing' : 'badge-cancelled'
+                      }`}>
+                        {shift.status}
+                      </span>
+                    </div>
+                    <div className="mobile-card-body">
+                      <div className="mobile-card-row">
+                        <span>Hours</span>
+                        <span className="mobile-card-row-value">
+                          {new Date(shift.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(shift.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    </div>
+                    {shift.status === 'ASSIGNED' && (
+                      <div className="mobile-card-actions" style={{ marginTop: '4px' }}>
+                        <button
+                          className="btn btn-secondary"
+                          style={{ padding: '6px 12px', minHeight: 'auto', width: '100%' }}
+                          onClick={() => handleRequestSwap(shift.id)}
+                        >
+                          Request Swap
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {myShifts.length === 0 && (
+                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>
+                    No shifts scheduled.
+                  </div>
+                )}
               </div>
             </div>
             <div className="modal-footer">

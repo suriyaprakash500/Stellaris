@@ -653,3 +653,93 @@ a:hover {
     padding-top: 16px;
   }
 }
+
+/* Mobile Design System Utilities (< 768px) */
+.visible-mobile, .visible-mobile-flex {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .hidden-mobile {
+    display: none !important;
+  }
+  .visible-mobile {
+    display: block !important;
+  }
+  .visible-mobile-flex {
+    display: flex !important;
+  }
+  
+  /* Layout adjustments */
+  .main-content {
+    padding: 12px !important;
+  }
+  
+  .card {
+    padding: 16px !important;
+    border-radius: var(--radius-md) !important;
+  }
+
+  /* Form spacing & Touch targets */
+  .btn, .input-control, select, input {
+    min-height: 48px !important;
+    font-size: 16px !important;
+  }
+
+  /* Mobile-specific Cards */
+  .mobile-card {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    text-align: left;
+  }
+  
+  .mobile-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 8px;
+  }
+
+  .mobile-card-title {
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--text-primary);
+  }
+
+  .mobile-card-body {
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .mobile-card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .mobile-card-row-value {
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .mobile-card-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: 12px;
+    margin-top: 4px;
+  }
+}

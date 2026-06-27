@@ -758,7 +758,7 @@ export const ManagerDashboard: React.FC = () => {
             {/* Popular Items list */}
             <div className="card">
               <h3>Top Popular Selling Items</h3>
-              <div className="table-container">
+              <div className="table-container hidden-mobile">
                 <table className="table">
                   <thead>
                     <tr>
@@ -783,12 +783,34 @@ export const ManagerDashboard: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile View of Popular Items */}
+              <div className="visible-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {salesReport.popularItems?.map((item: any) => (
+                  <div key={item.id} className="mobile-card" style={{ padding: '12px' }}>
+                    <div className="mobile-card-title">{item.name}</div>
+                    <div className="mobile-card-body" style={{ marginTop: '4px' }}>
+                      <div className="mobile-card-row">
+                        <span>Quantity Sold</span>
+                        <span className="mobile-card-row-value">{item.quantity} units</span>
+                      </div>
+                      <div className="mobile-card-row">
+                        <span>Revenue</span>
+                        <span className="mobile-card-row-value" style={{ color: 'var(--success)', fontWeight: 'bold' }}>₹{item.revenue.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {(!salesReport.popularItems || salesReport.popularItems.length === 0) && (
+                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>No completed sales recorded</div>
+                )}
+              </div>
             </div>
 
             {/* Sales by category list */}
             <div className="card">
               <h3>Sales Breakdown by Category</h3>
-              <div className="table-container">
+              <div className="table-container hidden-mobile">
                 <table className="table">
                   <thead>
                     <tr>
@@ -811,13 +833,28 @@ export const ManagerDashboard: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile View of Category Sales */}
+              <div className="visible-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {salesReport.categorySales?.map((item: any) => (
+                  <div key={item.category} className="mobile-card" style={{ padding: '12px' }}>
+                    <div className="mobile-card-row">
+                      <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{item.category}</span>
+                      <span style={{ fontWeight: 'bold', color: 'var(--success)' }}>₹{item.sales.toFixed(2)}</span>
+                    </div>
+                  </div>
+                ))}
+                {(!salesReport.categorySales || salesReport.categorySales.length === 0) && (
+                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>No completed sales recorded</div>
+                )}
+              </div>
             </div>
           </div>
 
           {/* CRM Feedback logs */}
           <div className="card">
             <h3>Customer Reviews & Ratings Feedback</h3>
-            <div className="table-container">
+            <div className="table-container hidden-mobile">
               <table className="table">
                 <thead>
                   <tr>
@@ -852,6 +889,33 @@ export const ManagerDashboard: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile View of Reviews */}
+            <div className="visible-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {feedbacks.map((fb) => (
+                <div key={fb.id} className="mobile-card">
+                  <div className="mobile-card-header">
+                    <span className="mobile-card-title">Order #{fb.order_id.slice(0, 8)}...</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{new Date(fb.created_at).toLocaleDateString()}</span>
+                  </div>
+                  <div className="mobile-card-body">
+                    <div style={{ display: 'flex', gap: '2px', marginBottom: '4px' }}>
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star key={s} size={14} fill={fb.rating >= s ? 'var(--warning)' : 'none'} stroke="var(--warning)" />
+                      ))}
+                    </div>
+                    <div style={{ fontSize: '13px', fontStyle: fb.comment ? 'normal' : 'italic', color: fb.comment ? 'var(--text-primary)' : 'var(--text-muted)', marginTop: '4px' }}>
+                      {fb.comment || 'No comment provided'}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {feedbacks.length === 0 && (
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>
+                  No reviews or ratings received.
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -862,7 +926,7 @@ export const ManagerDashboard: React.FC = () => {
           {/* List of current menu items */}
           <div className="card" style={{ gridColumn: 'span 2' }}>
             <h3>Menu Items Setup</h3>
-            <div className="table-container">
+            <div className="table-container hidden-mobile">
               <table className="table">
                 <thead>
                   <tr>
@@ -901,6 +965,46 @@ export const ManagerDashboard: React.FC = () => {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile View of Menu Items Setup */}
+            <div className="visible-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {menuItems.map((item) => (
+                <div key={item.id} className="mobile-card">
+                  <div className="mobile-card-header">
+                    <span className="mobile-card-title">{item.name}</span>
+                    <span className={`badge ${item.is_available ? 'badge-delivered' : 'badge-cancelled'}`}>
+                      {item.is_available ? 'Available' : 'Out of Stock'}
+                    </span>
+                  </div>
+                  <div className="mobile-card-body">
+                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                      {item.description || 'No description provided'}
+                    </div>
+                    <div className="mobile-card-row">
+                      <span>Category</span>
+                      <span className="mobile-card-row-value">{item.category}</span>
+                    </div>
+                    <div className="mobile-card-row">
+                      <span>Price</span>
+                      <span className="mobile-card-row-value" style={{ fontWeight: 'bold' }}>₹{item.price.toFixed(2)}</span>
+                    </div>
+                  </div>
+                  <div className="mobile-card-actions">
+                    <button className="btn btn-secondary" style={{ padding: '6px 12px', minHeight: 'auto' }} onClick={() => handleEditMenuItem(item)}>
+                      <Edit2 size={14} style={{ marginRight: '6px' }} /> Edit
+                    </button>
+                    <button className="btn btn-danger" style={{ padding: '6px 12px', minHeight: 'auto' }} onClick={() => handleDeleteMenuItem(item.id)}>
+                      <Trash2 size={14} style={{ marginRight: '6px' }} /> Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {menuItems.length === 0 && (
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>
+                  No menu items configured.
+                </div>
+              )}
             </div>
           </div>
 
@@ -1105,7 +1209,7 @@ export const ManagerDashboard: React.FC = () => {
           {/* List of current categories */}
           <div className="card" style={{ gridColumn: 'span 2' }}>
             <h3>Categories Setup</h3>
-            <div className="table-container">
+            <div className="table-container hidden-mobile">
               <table className="table">
                 <thead>
                   <tr>
@@ -1135,6 +1239,25 @@ export const ManagerDashboard: React.FC = () => {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile View of Categories Setup */}
+            <div className="visible-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {categories.map((cat) => (
+                <div key={cat.id} className="mobile-card" style={{ padding: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{cat.name}</span>
+                    <button className="btn btn-danger" style={{ padding: '6px 12px', minHeight: 'auto' }} onClick={() => handleDeleteCategory(cat.id)}>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {categories.length === 0 && (
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>
+                  No categories configured. Create one using the Add Category form!
+                </div>
+              )}
             </div>
           </div>
 
@@ -1181,7 +1304,7 @@ export const ManagerDashboard: React.FC = () => {
           <div className="grid-cols-3" style={{ alignItems: 'flex-start' }}>
             <div className="card" style={{ gridColumn: 'span 2' }}>
               <h3>Ingredient Stock Levels</h3>
-              <div className="table-container">
+              <div className="table-container hidden-mobile">
                 <table className="table">
                   <thead>
                     <tr>
@@ -1216,6 +1339,48 @@ export const ManagerDashboard: React.FC = () => {
                     })}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Mobile View of Ingredient Stock Levels */}
+              <div className="visible-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {ingredients.map((ing) => {
+                  const isLow = ing.current_stock <= ing.min_stock_alert;
+                  return (
+                    <div key={ing.id} className="mobile-card" style={isLow ? { borderLeft: '4px solid var(--danger)', backgroundColor: 'rgba(239, 68, 68, 0.02)' } : {}}>
+                      <div className="mobile-card-header">
+                        <span className="mobile-card-title">{ing.name}</span>
+                        {isLow && <span className="badge badge-cancelled" style={{ fontSize: '11px' }}>Low Stock</span>}
+                      </div>
+                      <div className="mobile-card-body">
+                        <div className="mobile-card-row">
+                          <span>Current Stock</span>
+                          <span className="mobile-card-row-value" style={isLow ? { color: 'var(--danger)', fontWeight: 'bold' } : {}}>{ing.current_stock} {ing.unit}</span>
+                        </div>
+                        <div className="mobile-card-row">
+                          <span>Min Alert Level</span>
+                          <span className="mobile-card-row-value">{ing.min_stock_alert} {ing.unit}</span>
+                        </div>
+                        <div className="mobile-card-row">
+                          <span>Primary Vendor</span>
+                          <span className="mobile-card-row-value">{ing.vendor?.name || 'None'}</span>
+                        </div>
+                      </div>
+                      <div className="mobile-card-actions">
+                        <button className="btn btn-secondary" style={{ padding: '6px 12px', minHeight: 'auto' }} onClick={() => handleEditIngredient(ing)}>
+                          <Edit2 size={14} style={{ marginRight: '6px' }} /> Edit
+                        </button>
+                        <button className="btn btn-danger" style={{ padding: '6px 12px', minHeight: 'auto' }} onClick={() => handleDeleteIngredient(ing.id)}>
+                          <Trash2 size={14} style={{ marginRight: '6px' }} /> Delete
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {ingredients.length === 0 && (
+                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>
+                    No ingredients configured.
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1397,7 +1562,7 @@ export const ManagerDashboard: React.FC = () => {
             <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div>
                 <h3>Suppliers / Vendors</h3>
-                <div className="table-container" style={{ maxHeight: '260px', overflowY: 'auto' }}>
+                <div className="table-container hidden-mobile" style={{ maxHeight: '260px', overflowY: 'auto' }}>
                   <table className="table">
                     <thead>
                       <tr>
@@ -1419,6 +1584,24 @@ export const ManagerDashboard: React.FC = () => {
                       )}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Mobile View of Vendors */}
+                <div className="visible-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '260px', overflowY: 'auto' }}>
+                  {vendors.map((v) => (
+                    <div key={v.id} className="mobile-card" style={{ padding: '12px' }}>
+                      <div className="mobile-card-title">{v.name}</div>
+                      <div className="mobile-card-body" style={{ marginTop: '4px' }}>
+                        <div className="mobile-card-row">
+                          <span>Contact</span>
+                          <span className="mobile-card-row-value">{v.contact_info || 'None'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {vendors.length === 0 && (
+                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>No suppliers defined</div>
+                  )}
                 </div>
               </div>
 
@@ -1481,7 +1664,7 @@ export const ManagerDashboard: React.FC = () => {
             <h3>2. Ingredient Deductions List</h3>
             {selectedRecipeMenuItem ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                <div className="table-container">
+                <div className="table-container hidden-mobile">
                   <table className="table">
                     <thead>
                       <tr>
@@ -1511,6 +1694,31 @@ export const ManagerDashboard: React.FC = () => {
                       )}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Mobile View of Recipe Ingredients */}
+                <div className="visible-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {recipeIngredients.map((row, index) => (
+                    <div key={row.ingredient_id || index} className="mobile-card" style={{ padding: '12px' }}>
+                      <div className="mobile-card-title">{row.ingredient.name}</div>
+                      <div className="mobile-card-body" style={{ marginTop: '4px' }}>
+                        <div className="mobile-card-row">
+                          <span>Required Quantity</span>
+                          <span className="mobile-card-row-value">{row.quantity} {row.ingredient.unit}</span>
+                        </div>
+                      </div>
+                      <div className="mobile-card-actions">
+                        <button className="btn btn-danger" style={{ padding: '6px 12px', minHeight: 'auto' }} onClick={() => handleRemoveRecipeIngredient(index)}>
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {recipeIngredients.length === 0 && (
+                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>
+                      No recipe ingredients mapped.
+                    </div>
+                  )}
                 </div>
 
                 {/* Add Row form */}
@@ -1567,7 +1775,7 @@ export const ManagerDashboard: React.FC = () => {
             {/* Shifts calendar list */}
             <div className="card" style={{ gridColumn: 'span 2' }}>
               <h3>Assigned Work Shifts</h3>
-              <div className="table-container">
+              <div className="table-container hidden-mobile">
                 <table className="table">
                   <thead>
                     <tr>
@@ -1630,6 +1838,67 @@ export const ManagerDashboard: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile View of Assigned Work Shifts */}
+              <div className="visible-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {shifts.map((shift) => (
+                  <div key={shift.id} className="mobile-card">
+                    <div className="mobile-card-header">
+                      <span className="mobile-card-title">{shift.user.name}</span>
+                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{shift.user.role}</span>
+                    </div>
+                    <div className="mobile-card-body">
+                      <div className="mobile-card-row">
+                        <span>Date</span>
+                        <span className="mobile-card-row-value">{new Date(shift.start_time).toLocaleDateString()}</span>
+                      </div>
+                      <div className="mobile-card-row">
+                        <span>Hours</span>
+                        <span className="mobile-card-row-value">
+                          {new Date(shift.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(shift.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <div className="mobile-card-row">
+                        <span>Status</span>
+                        <span className={`badge ${
+                          shift.status === 'ASSIGNED' ? 'badge-pending' :
+                          shift.status === 'COMPLETED' ? 'badge-delivered' :
+                          shift.status === 'SWAP_REQUESTED' ? 'badge-preparing' : 'badge-cancelled'
+                        }`}>
+                          {shift.status}
+                        </span>
+                      </div>
+                    </div>
+                    {shift.status !== 'COMPLETED' && shift.status !== 'CANCELLED' && (
+                      <div className="mobile-card-actions">
+                        {shift.status === 'SWAP_REQUESTED' && (
+                          <button
+                            className="btn btn-success"
+                            style={{ padding: '6px 12px', minHeight: 'auto' }}
+                            onClick={() => handleShiftStatusChange(shift.id, 'ASSIGNED')}
+                          >
+                            Approve Swap
+                          </button>
+                        )}
+                        {shift.status === 'ASSIGNED' && (
+                          <button
+                            className="btn btn-secondary"
+                            style={{ padding: '6px 12px', minHeight: 'auto' }}
+                            onClick={() => handleShiftStatusChange(shift.id, 'COMPLETED')}
+                          >
+                            Complete Shift
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {shifts.length === 0 && (
+                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>
+                    No shifts scheduled.
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Shift Assignment Form */}
@@ -1684,7 +1953,7 @@ export const ManagerDashboard: React.FC = () => {
             {/* Clocking history timesheets */}
             <div className="card">
               <h3>Timesheet Clock-In logs</h3>
-              <div className="table-container" style={{ maxHeight: '350px', overflowY: 'auto' }}>
+              <div className="table-container hidden-mobile" style={{ maxHeight: '350px', overflowY: 'auto' }}>
                 <table className="table">
                   <thead>
                     <tr>
@@ -1714,12 +1983,45 @@ export const ManagerDashboard: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile View of Timesheets */}
+              <div className="visible-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '350px', overflowY: 'auto' }}>
+                {timesheets.map((ts) => (
+                  <div key={ts.id} className="mobile-card" style={{ padding: '12px' }}>
+                    <div className="mobile-card-header">
+                      <span className="mobile-card-title">{ts.user.name}</span>
+                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{ts.user.role}</span>
+                    </div>
+                    <div className="mobile-card-body">
+                      <div className="mobile-card-row">
+                        <span>Clock In</span>
+                        <span className="mobile-card-row-value">{new Date(ts.clock_in).toLocaleString()}</span>
+                      </div>
+                      <div className="mobile-card-row">
+                        <span>Clock Out</span>
+                        <span className="mobile-card-row-value">
+                          {ts.clock_out ? new Date(ts.clock_out).toLocaleString() : <span style={{ color: 'var(--success)', fontWeight: 'bold' }}>Clocked In</span>}
+                        </span>
+                      </div>
+                      <div className="mobile-card-row">
+                        <span>Total Hours</span>
+                        <span className="mobile-card-row-value">{ts.total_hours !== null ? `${ts.total_hours} hrs` : '--'}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {timesheets.length === 0 && (
+                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>
+                    No clock-in events recorded.
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Staff Hours performance aggregation table */}
             <div className="card">
               <h3>Employee Total Logged Hours Summary</h3>
-              <div className="table-container">
+              <div className="table-container hidden-mobile">
                 <table className="table">
                   <thead>
                     <tr>
@@ -1745,6 +2047,34 @@ export const ManagerDashboard: React.FC = () => {
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Mobile View of Employee Hours Summary */}
+              <div className="visible-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {performanceReport.map((p) => (
+                  <div key={p.userId} className="mobile-card" style={{ padding: '12px' }}>
+                    <div className="mobile-card-title">{p.name}</div>
+                    <div className="mobile-card-body" style={{ marginTop: '4px' }}>
+                      <div className="mobile-card-row">
+                        <span>Role</span>
+                        <span className="mobile-card-row-value">{p.role}</span>
+                      </div>
+                      <div className="mobile-card-row">
+                        <span>Shifts</span>
+                        <span className="mobile-card-row-value">{p.shiftCount} shifts</span>
+                      </div>
+                      <div className="mobile-card-row">
+                        <span>Hours Worked</span>
+                        <span className="mobile-card-row-value" style={{ color: 'var(--primary-hover)', fontWeight: 'bold' }}>{p.totalHours} hrs</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {performanceReport.length === 0 && (
+                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>
+                    No work hours aggregated yet.
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1843,7 +2173,7 @@ export const ManagerDashboard: React.FC = () => {
             <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
               Directory of managers and operational staff accounts.
             </p>
-            <div className="table-container">
+            <div className="table-container hidden-mobile">
               <table className="table">
                 <thead>
                   <tr>
@@ -1909,6 +2239,64 @@ export const ManagerDashboard: React.FC = () => {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile View of User Management */}
+            <div className="visible-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {employees.map((emp) => {
+                const empBranch = branches.find((b) => b.id === emp.branch_id);
+                return (
+                  <div key={emp.id} className="mobile-card">
+                    <div className="mobile-card-header">
+                      <span className="mobile-card-title">{emp.name}</span>
+                      <span className={`badge ${emp.role === 'OWNER' ? 'badge-delivered' : emp.role === 'MANAGER' ? 'badge-preparing' : 'badge-pending'}`}>
+                        {emp.role}
+                      </span>
+                    </div>
+                    <div className="mobile-card-body">
+                      <div className="mobile-card-row">
+                        <span>Email</span>
+                        <span className="mobile-card-row-value">{emp.email}</span>
+                      </div>
+                      {emp.mobile_no && (
+                        <div className="mobile-card-row">
+                          <span>Phone</span>
+                          <span className="mobile-card-row-value">{emp.mobile_no}</span>
+                        </div>
+                      )}
+                      <div className="mobile-card-row">
+                        <span>Role Title</span>
+                        <span className="mobile-card-row-value" style={{ fontStyle: 'italic' }}>{emp.role_title || '--'}</span>
+                      </div>
+                      <div className="mobile-card-row">
+                        <span>Branch</span>
+                        <span className="mobile-card-row-value">
+                          {emp.role === 'OWNER' ? 'All Locations' : empBranch?.name || 'Unassigned'}
+                        </span>
+                      </div>
+                      <div className="mobile-card-row" style={{ alignItems: 'flex-start', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 600 }}>Permissions:</span>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          {emp.can_manage_menu && <span className="badge" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '10px', padding: '2px 6px' }}>Menu</span>}
+                          {emp.can_prepare_food && <span className="badge" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '10px', padding: '2px 6px' }}>Kitchen</span>}
+                          {emp.can_manage_delivery && <span className="badge" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '10px', padding: '2px 6px' }}>Delivery</span>}
+                          {emp.can_process_billing && <span className="badge" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '10px', padding: '2px 6px' }}>POS</span>}
+                          {emp.can_view_reports && <span className="badge" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '10px', padding: '2px 6px' }}>Reports</span>}
+                          {emp.can_manage_inventory && <span className="badge" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '10px', padding: '2px 6px' }}>Inventory</span>}
+                          {emp.can_manage_recipes && <span className="badge" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '10px', padding: '2px 6px' }}>Recipes</span>}
+                          {emp.can_manage_shifts && <span className="badge" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '10px', padding: '2px 6px' }}>Shifts</span>}
+                          {emp.can_clock_in_out && <span className="badge" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', fontSize: '10px', padding: '2px 6px' }}>Clock</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {employees.length === 0 && (
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>
+                  No staff accounts created yet.
+                </div>
+              )}
             </div>
           </div>
 
@@ -2227,7 +2615,7 @@ export const ManagerDashboard: React.FC = () => {
               <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
                 Create and manage the parent business brand entities.
               </p>
-              <div className="table-container">
+              <div className="table-container hidden-mobile">
                 <table className="table">
                   <thead>
                     <tr>
@@ -2251,6 +2639,24 @@ export const ManagerDashboard: React.FC = () => {
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Mobile View of Business Brands */}
+              <div className="visible-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {businesses.map((b) => (
+                  <div key={b.id} className="mobile-card" style={{ padding: '12px' }}>
+                    <div className="mobile-card-title">{b.name}</div>
+                    <div className="mobile-card-body" style={{ marginTop: '4px' }}>
+                      <div className="mobile-card-row">
+                        <span>Created At</span>
+                        <span className="mobile-card-row-value">{new Date(b.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {businesses.length === 0 && (
+                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>No business brands defined yet.</div>
+                )}
               </div>
             </div>
 
@@ -2283,7 +2689,7 @@ export const ManagerDashboard: React.FC = () => {
               <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
                 Physical branch outlets mapped to parent brands.
               </p>
-              <div className="table-container">
+              <div className="table-container hidden-mobile">
                 <table className="table">
                   <thead>
                     <tr>
@@ -2315,6 +2721,37 @@ export const ManagerDashboard: React.FC = () => {
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Mobile View of Branch Locations */}
+              <div className="visible-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {branches.map((b) => {
+                  const parentBiz = businesses.find((biz) => biz.id === b.business_id);
+                  return (
+                    <div key={b.id} className="mobile-card" style={{ padding: '12px' }}>
+                      <div className="mobile-card-title">{b.name}</div>
+                      <div className="mobile-card-body" style={{ marginTop: '4px' }}>
+                        <div className="mobile-card-row">
+                          <span>Parent Brand</span>
+                          <span className="mobile-card-row-value">{parentBiz?.name || 'None'}</span>
+                        </div>
+                        <div className="mobile-card-row">
+                          <span>Location</span>
+                          <span className="mobile-card-row-value">{b.location || 'No location'}</span>
+                        </div>
+                        {b.mobile_no && (
+                          <div className="mobile-card-row">
+                            <span>Phone</span>
+                            <span className="mobile-card-row-value">{b.mobile_no}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {branches.length === 0 && (
+                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>No branches defined yet.</div>
+                )}
               </div>
             </div>
 
@@ -2417,7 +2854,7 @@ export const ManagerDashboard: React.FC = () => {
             <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '16px' }}>
               Timing is tracked from order creation (intake) to final delivery. Late orders (over 10 mins) are highlighted in red.
             </p>
-            <div className="table-container">
+            <div className="table-container hidden-mobile">
               <table className="table">
                 <thead>
                   <tr>
@@ -2478,6 +2915,59 @@ export const ManagerDashboard: React.FC = () => {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile View of Detailed Order Milestones */}
+            <div className="visible-mobile" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {orderTimingReport.orders.map((o: any) => (
+                <div key={o.id} className="mobile-card" style={{
+                  backgroundColor: o.isDelayed ? 'rgba(239, 68, 68, 0.02)' : 'var(--bg-secondary)',
+                  borderLeft: o.isDelayed ? '4px solid var(--danger)' : '1px solid var(--border-color)'
+                }}>
+                  <div className="mobile-card-header">
+                    <div>
+                      <span className="mobile-card-title">Order #{o.id.slice(0, 8)}</span>
+                      {o.isDelayed && (
+                        <span style={{ marginLeft: '8px', fontSize: '11px', color: 'var(--danger)', fontWeight: 'bold' }}>⚠️ LATE</span>
+                      )}
+                    </div>
+                    <span className={`badge badge-${o.status.toLowerCase()}`}>{o.status}</span>
+                  </div>
+                  <div className="mobile-card-body">
+                    <div className="mobile-card-row">
+                      <span>Branch</span>
+                      <span className="mobile-card-row-value">{o.branchName}</span>
+                    </div>
+                    <div className="mobile-card-row">
+                      <span>Customer</span>
+                      <span className="mobile-card-row-value">{o.customerName}</span>
+                    </div>
+                    <div className="mobile-card-row">
+                      <span>Intake Time</span>
+                      <span className="mobile-card-row-value">{new Date(o.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    <div className="mobile-card-row">
+                      <span>Prep Duration</span>
+                      <span className="mobile-card-row-value" style={{ fontWeight: 'bold' }}>{o.prepDurationMin !== null ? `${o.prepDurationMin} m` : '-'}</span>
+                    </div>
+                    <div className="mobile-card-row">
+                      <span>Delivery Duration</span>
+                      <span className="mobile-card-row-value" style={{ fontWeight: 'bold' }}>{o.deliveryDurationMin !== null ? `${o.deliveryDurationMin} m` : '-'}</span>
+                    </div>
+                    <div className="mobile-card-row">
+                      <span>Total Duration</span>
+                      <span className="mobile-card-row-value" style={{ fontWeight: 'bold', color: o.isDelayed ? 'var(--danger)' : 'var(--primary-hover)' }}>
+                        {o.totalDurationMin !== null ? `${o.totalDurationMin} m` : '-'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {orderTimingReport.orders.length === 0 && (
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>
+                  No orders recorded yet.
+                </div>
+              )}
             </div>
           </div>
         </div>
