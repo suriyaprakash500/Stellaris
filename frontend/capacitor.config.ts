@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Stellaris',
   webDir: 'dist',
   server: {
-    androidScheme: 'https'
+    androidScheme: 'http'
   }
 };
 
