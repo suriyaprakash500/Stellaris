@@ -1,8 +1,4 @@
-import { Capacitor } from '@capacitor/core';
-
-const API_BASE = Capacitor.isNativePlatform()
-  ? 'https://stellarisposs.duckdns.org/api'
-  : (import.meta.env.VITE_API_URL || 'http://localhost:5000');
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const REQUEST_TIMEOUT_MS = 15000;
 
 function getHeaders() {
